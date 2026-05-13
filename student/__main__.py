@@ -1,6 +1,9 @@
 try:
+    import json
+    import re
     import sys
 
+    import bm25s
     import fire
 
     from student.indexer import ChunkIndexer
@@ -17,6 +20,17 @@ class CLI:
 
     def search(self, query, k=10):
         print(f"Searching for: {query} with top-k: {k}")
+        retriever = bm25s.BM25.load("./data/index/bm25_model", load_corpus=True)
+        try:
+            with open("./data/index/chunks_metadata.json", "r") as f:
+                metadata = json.load(f)
+        except Exception as e:
+            print(f"Error loading chunks metadata: {e}")
+            sys.exit(1)
+
+        query_tokens = bm25s.tokenize(query, stopwords="en")
+        docs, scores = retriever.retrieve(query_tokens, k=2)
+        print(f"Best result (score: {scores[0, 0]:.2f}): {docs[0, 0]}")
 
     def search_dataset(self, name, k=10):
         print(f"Searching dataset: {name} with top-k: {k}")
