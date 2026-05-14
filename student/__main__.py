@@ -1,9 +1,6 @@
 try:
-    import json
-    import re
     import sys
 
-    import bm25s
     import fire
 
     from student.indexer import ChunkIndexer
