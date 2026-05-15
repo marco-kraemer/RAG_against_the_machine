@@ -4,7 +4,8 @@ try:
     import fire
 
     from student.indexer import ChunkIndexer
-    from student.search import Search
+    from student.search import search
+    from student.answer import rag
 except ImportError:
     print("Run make install to install the required dependencies.")
     print("Example: uv run python -m student")
@@ -17,14 +18,14 @@ class CLI:
         indexer.index_repository(max_chunk_size=max_chunk_size)
 
     def search(self, query, k=10):
-        search = Search()
-        search.search(query, k)
+        search(query, k)
 
     def search_dataset(self, name, k=10):
         print(f"Searching dataset: {name} with top-k: {k}")
 
-    def answer(self, question):
-        print(f"Answering question: {question}")
+    def answer(self, query, k=10):
+        print(f"Answering question: {query}")
+        rag_answer = rag(query, k=10)
 
     def answer_dataset(self, name, k=5):
         print(f"Answering dataset: {name} with top-k: {k}")

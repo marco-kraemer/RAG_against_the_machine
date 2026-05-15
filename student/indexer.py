@@ -8,21 +8,13 @@ from tqdm import tqdm
 
 
 class ChunkIndexer:
-    def __init__(self, repo_path="data/raw/vllm-0.10.1", index_dir="data/index"):
+    def __init__(
+        self,
+        repo_path="data/raw/vllm-0.10.1",
+        index_dir="data/index",
+    ):
         self.repo_path = Path(repo_path)
         self.index_dir = Path(index_dir)
-
-    #        self.supported_extensions = {
-    #            ".py",
-    #            ".md",
-    #            ".rst",
-    #            ".txt",
-    #            ".c",
-    #            ".cpp",
-    #            ".h",
-    #            ".cu",
-    #            ".cuh",
-    #        }
 
     def chunk_text(self, text, max_chunk_size) -> List[dict]:
         """
@@ -70,7 +62,7 @@ class ChunkIndexer:
                     else:
                         # Step 3: Hard character split
                         for i in range(0, len(sub_block), max_chunk_size):
-                            chunk_content = sub_block[i : i + max_chunk_size]
+                            chunk_content = sub_block[i: i + max_chunk_size]
                             final_chunks.append(
                                 {
                                     "content": chunk_content,
@@ -92,10 +84,7 @@ class ChunkIndexer:
         # 1. Walk through files
         files_to_index: List[Path] = []
         for root, _, files in os.walk(self.repo_path):
-            # Skip hidden directories
-            # dirs[:] = [d for d in dirs if not d.startswith(".")]
             for file in files:
-                # if any(file.endswith(ext) for ext in self.supported_extensions):
                 files_to_index.append(Path(root) / file)
 
         print(f"Found {len(files_to_index)} files. Chunking...")
@@ -104,7 +93,12 @@ class ChunkIndexer:
         all_chunks: List[dict] = []
         for file_path in tqdm(files_to_index):
             try:
-                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                with open(
+                    file_path,
+                    "r",
+                    encoding="utf-8",
+                    errors="ignore",
+                ) as f:
                     content = f.read()
 
                 relative_path = os.path.relpath(file_path, self.repo_path)
@@ -120,7 +114,7 @@ class ChunkIndexer:
             print("No chunks found to index.")
             return
 
-        print(f"Total chunks created: {len(all_chunks)}. Building BM25 index...")
+        print(f"Total chunks created: {len(all_chunks)}. Building BM25 index")
 
         # 3. Create BM25 index
         corpus: List = [c["content"] for c in all_chunks]
