@@ -1,17 +1,21 @@
-import sys
-import os
 import logging
-from student.search import search
-from transformers import pipeline, logging as transformers_logging
-import torch
-from typing import List, Dict
+import os
+import re
+from typing import Dict, List
 
-# Suppress warnings
+import torch
+from student.search import search
+from transformers import AutoTokenizer, pipeline, AutoModelForCausalLM
+from transformers import logging as transformers_logging
+
+# Suppress warnings and noisy logs
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
 os.environ["HF_HUB_VERBOSITY"] = "error"
+
 transformers_logging.set_verbosity_error()
+
 logging.getLogger("transformers").setLevel(logging.ERROR)
 logging.getLogger("huggingface_hub").setLevel(logging.ERROR)
 
@@ -19,76 +23,88 @@ _generator = None
 
 
 def get_generator():
+    """
+    Lazily load and cache the text-generation pipeline.
+    """
     global _generator
-    if _generator is None:
-        model_name = "Qwen/Qwen3-0.6B"
-        _generator = pipeline(
-            "text-generation",
-            model=model_name,
-            dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-            device_map="auto",
-        )
     return _generator
 
 
-def rag(query: str, k: int):
-    generator = get_generator()
-
-    search_data: List[Dict] = search(query, k)
-
-    retrieved_context: str = ""
+def build_context(search_data: List[Dict]) -> str:
+    """
+    Build retrieval context from retrieved chunks.
+    """
+    retrieved_context = ""
 
     for data in search_data:
         file_path = data["file_path"]
         first_char = data["first_character_index"]
         last_char = data["last_character_index"]
 
+        full_path = f"./data/raw/vllm-0.10.1/{file_path}"
+
         try:
-            with open(f"./data/raw/vllm-0.10.1/{file_path}", "r") as f:
-                content = f.read()
-                chunk_content = content[first_char:last_char]
-                retrieved_context += f"Source {file_path}:\n{chunk_content}\n---\n"
-        except Exception as e:
-            print(f"Error reading {file_path}: {e}")
+            with open(full_path, "r", encoding="utf-8") as file:
+                file_content = file.read()
+
+                chunk_content = file_content[first_char:last_char]
+
+                retrieved_context += (
+                    f"\n=== SOURCE: {file_path} ===\n" f"{chunk_content}\n"
+                )
+
+        except Exception as error:
+            print(f"Error reading {file_path}: {error}")
             continue
 
-    prompt = f"Use the following context to answer the question.\n\nContext:\n{retrieved_context}\n\nQuestion: {query}\n\nAnswer:"
+    return retrieved_context.strip()
 
-    messages = [
-        {
-            "role": "system",
-            "content": "You are a vLLM expert. Answer the question in one sentence.",
-        },
-        {
-            "role": "user",
-            "content": prompt,
-        },
-    ]
 
-    output = generator(
-        messages,
-        max_new_tokens=100,
-        truncation=True,
+def rag(query: str, k: int = 5) -> str:
+    """
+    Execute the RAG pipeline:
+    1. Retrieve relevant chunks
+    2. Build context
+    3. Generate grounded answer
+    """
+
+    model_name = "Qwen/Qwen3-0.6B"
+
+    tokernizer = AutoTokenizer.from_pretrained(model_name)
+
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        torch_dtype=torch.float16,
+        device_map="auto",
+    )
+
+    search_data: List[Dict] = search(query, k)
+
+    retrieved_context = build_context(search_data)
+
+    prompt = f"""You are a vLLM expert.\n
+Answer ONLY using the provided context.\n
+Answer it one sentence.\n
+Context:\n{retrieved_context}\n\n
+Question:\n{query}
+Answer:"""
+
+    inputs = tokernizer(
+        prompt,
+        return_tensors="pt",
+    ).to(model.device)
+
+    output = model.generate(
+        **inputs,
+        max_new_tokens=256,
         do_sample=False,
     )
 
-    full_text = output[0]["generated_text"]
-
-    # Extract the assistant's response from the chat format
-    if isinstance(full_text, list):
-        answer = full_text[-1]["content"]
-    else:
-        # Fallback for non-chat format
-        answer = full_text
-
-    # Remove thinking block if present
-    if "<think>" in answer:
-        if "</think>" in answer:
-            answer = answer.split("</think>")[-1].strip()
-        else:
-            parts = answer.split("<think>")
-            if len(parts) > 1:
-                answer = parts[-1].split("</think>")[-1].strip()
+    answer = tokernizer.decode(
+        output[0],
+        skip_special_tokens=True,
+    )
 
     print(answer)
+
     return answer
