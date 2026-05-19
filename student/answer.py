@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 from typing import Any, Dict, List
+import torch
+from student.models import MinimalAnswer, MinimalSource
 
 os.environ.setdefault("HF_HUB_OFFLINE", "1")
 os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
@@ -8,10 +10,7 @@ os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
-import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
-
-from student.models import MinimalAnswer, MinimalSource
 
 _tokenizer = None
 _model = None
@@ -42,14 +41,6 @@ def get_model():
                 "offline."
             ) from e
     return _tokenizer, _model
-
-
-def warmup_answer() -> None:
-    """Preload search and model resources before processing many answers."""
-    from student.search import warmup_search
-
-    warmup_search()
-    get_model()
 
 
 def chunks_to_sources(chunks: List[Dict[str, Any]]) -> List[MinimalSource]:
@@ -187,7 +178,3 @@ def answer_query(query: str, k: int = 10) -> MinimalAnswer:
         retrieved_sources=sources,
         answer=answer,
     )
-
-
-def rag(query: str, k: int = 10) -> str:
-    return answer_query(query, k).answer

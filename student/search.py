@@ -43,12 +43,6 @@ def get_metadata() -> List[Dict[str, Any]]:
     return _metadata
 
 
-def warmup_search() -> None:
-    """Preload search resources before processing many queries."""
-    get_retriever()
-    get_metadata()
-
-
 def _retrieve_chunks(query: str, k: int) -> List[Dict[str, Any]]:
     retriever = get_retriever()
     metadata = get_metadata()
@@ -65,10 +59,6 @@ def _retrieve_chunks(query: str, k: int) -> List[Dict[str, Any]]:
         data["last_character_index"] = source["last_character_index"]
         data["content"] = source["content"]
         search_data.append(data)
-
-    # for data in search_data:
-    #     print(data)
-
     return search_data
 
 
