@@ -1,11 +1,12 @@
 try:
+    import json
     import sys
 
     import fire
 
+    from student.answer import answer_query
     from student.indexer import ChunkIndexer
     from student.search import search
-    from student.answer import rag
 except ImportError:
     print("Run make install to install the required dependencies.")
     print("Example: uv run python -m student")
@@ -18,14 +19,15 @@ class CLI:
         indexer.index_repository(max_chunk_size=max_chunk_size)
 
     def search(self, query, k=10):
-        search(query, k)
+        result = search(query, k)
+        print(json.dumps(result.model_dump(), indent=2))
 
     def search_dataset(self, name, k=10):
         print(f"Searching dataset: {name} with top-k: {k}")
 
     def answer(self, query, k=10):
-        print(f"Answering question: {query}")
-        rag_answer = rag(query, k=10)
+        result = answer_query(query, k=k)
+        print(json.dumps(result.model_dump(), indent=2))
 
     def answer_dataset(self, name, k=5):
         print(f"Answering dataset: {name} with top-k: {k}")

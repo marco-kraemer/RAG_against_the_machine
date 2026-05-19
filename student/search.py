@@ -2,14 +2,15 @@ try:
     import json
     import sys
     import bm25s
-    from typing import Dict, List
+    from typing import Any, Dict, List
+
+    from student.models import MinimalSearchResults, MinimalSource
 except ImportError:
     print("Run make install to install the required dependencies.")
     sys.exit(1)
 
 
-def search(query: str, k: int):
-    print(f"Searching for: {query} with top-k: {k}")
+def _retrieve_chunks(query: str, k: int) -> List[Dict[str, Any]]:
     try:
         retriever = bm25s.BM25.load(
             "./data/index/bm25_model",
@@ -28,17 +29,34 @@ def search(query: str, k: int):
 
     query_tokens = bm25s.tokenize(query, stopwords="en")
     docs, _ = retriever.retrieve(query_tokens, k=k)
-    search_data: List[Dict] = []
+    search_data: List[Dict[str, Any]] = []
     for match in docs[0]:
         id: int = match["id"]
         source = metadata[id]
-        data: Dict = {}
+        data: Dict[str, Any] = {}
         data["file_path"] = source["file_path"]
         data["first_character_index"] = source["first_character_index"]
         data["last_character_index"] = source["last_character_index"]
+        data["content"] = source["content"]
         search_data.append(data)
 
     # for data in search_data:
     #     print(data)
 
     return search_data
+
+
+def search(query: str, k: int = 10) -> MinimalSearchResults:
+    chunks = _retrieve_chunks(query, k)
+    return MinimalSearchResults(
+        question_id="cli_query",
+        question=query,
+        retrieved_sources=[
+            MinimalSource(
+                file_path=chunk["file_path"],
+                first_character_index=chunk["first_character_index"],
+                last_character_index=chunk["last_character_index"],
+            )
+            for chunk in chunks
+        ],
+    )
