@@ -10,25 +10,51 @@ except ImportError:
     sys.exit(1)
 
 
-def _retrieve_chunks(query: str, k: int) -> List[Dict[str, Any]]:
-    try:
-        retriever = bm25s.BM25.load(
-            "./data/index/bm25_model",
-            load_corpus=True,
-        )
-    except Exception as e:
-        print(f"Error loading BM25 model: {e}")
-        print("Run: uv run python -m student index")
-        sys.exit(1)
-    try:
-        with open("./data/index/chunks_metadata.json", "r") as f:
-            metadata = json.load(f)
-    except Exception as e:
-        print(f"Error loading chunks metadata: {e}")
-        sys.exit(1)
+_retriever = None
+_metadata = None
 
-    query_tokens = bm25s.tokenize(query, stopwords="en")
-    docs, _ = retriever.retrieve(query_tokens, k=k)
+
+def get_retriever():
+    """Load and cache the BM25 retriever for warm in-process searches."""
+    global _retriever
+    if _retriever is None:
+        try:
+            _retriever = bm25s.BM25.load(
+                "./data/index/bm25_model",
+                load_corpus=True,
+            )
+        except Exception as e:
+            print(f"Error loading BM25 model: {e}")
+            print("Run: uv run python -m student index")
+            sys.exit(1)
+    return _retriever
+
+
+def get_metadata() -> List[Dict[str, Any]]:
+    """Load and cache chunk metadata for warm in-process searches."""
+    global _metadata
+    if _metadata is None:
+        try:
+            with open("./data/index/chunks_metadata.json", "r") as f:
+                _metadata = json.load(f)
+        except Exception as e:
+            print(f"Error loading chunks metadata: {e}")
+            sys.exit(1)
+    return _metadata
+
+
+def warmup_search() -> None:
+    """Preload search resources before processing many queries."""
+    get_retriever()
+    get_metadata()
+
+
+def _retrieve_chunks(query: str, k: int) -> List[Dict[str, Any]]:
+    retriever = get_retriever()
+    metadata = get_metadata()
+
+    query_tokens = bm25s.tokenize(query, stopwords="en", show_progress=False)
+    docs, _ = retriever.retrieve(query_tokens, k=k, show_progress=False)
     search_data: List[Dict[str, Any]] = []
     for match in docs[0]:
         id: int = match["id"]

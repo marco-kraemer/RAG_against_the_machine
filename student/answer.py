@@ -1,4 +1,12 @@
+import os
+from pathlib import Path
 from typing import Any, Dict, List
+
+os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -7,24 +15,41 @@ from student.models import MinimalAnswer, MinimalSource
 
 _tokenizer = None
 _model = None
+RAW_REPO_PATH = Path("data/raw/vllm-0.10.1")
 
 
 def get_model():
     global _tokenizer, _model
     if _tokenizer is None or _model is None:
         model_name = "Qwen/Qwen3-0.6B"
-        _tokenizer = AutoTokenizer.from_pretrained(
-            model_name,
-            local_files_only=False,
-        )
+        try:
+            _tokenizer = AutoTokenizer.from_pretrained(
+                model_name,
+                local_files_only=True,
+            )
 
-        model_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-        _model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            dtype=model_dtype,
-            device_map="auto",
-        )
+            model_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+            _model = AutoModelForCausalLM.from_pretrained(
+                model_name,
+                local_files_only=True,
+                dtype=model_dtype,
+                device_map="auto",
+            )
+        except Exception as e:
+            raise RuntimeError(
+                "Could not load Qwen/Qwen3-0.6B from the local Hugging Face "
+                "cache. Cache the model once before running answer generation "
+                "offline."
+            ) from e
     return _tokenizer, _model
+
+
+def warmup_answer() -> None:
+    """Preload search and model resources before processing many answers."""
+    from student.search import warmup_search
+
+    warmup_search()
+    get_model()
 
 
 def chunks_to_sources(chunks: List[Dict[str, Any]]) -> List[MinimalSource]:
@@ -37,6 +62,33 @@ def chunks_to_sources(chunks: List[Dict[str, Any]]) -> List[MinimalSource]:
         )
         for chunk in chunks
     ]
+
+
+def read_expanded_source(
+    chunk: Dict[str, Any],
+    max_chars: int = 1800,
+) -> str:
+    """Read a useful context window around a retrieved chunk."""
+    file_path = Path(str(chunk["file_path"]))
+    candidates = [file_path]
+    if not file_path.is_absolute():
+        candidates.append(RAW_REPO_PATH / file_path)
+
+    content = str(chunk.get("content", ""))
+    for candidate in candidates:
+        try:
+            text = candidate.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+
+        start = max(0, int(chunk["first_character_index"]))
+        end = min(len(text), int(chunk["last_character_index"]))
+        window_end = min(len(text), max(end, start + max_chars))
+        expanded = text[start:window_end].strip()
+        if expanded:
+            return expanded
+
+    return content.strip()
 
 
 def build_context(
@@ -54,7 +106,7 @@ def build_context(
             f"{chunk['first_character_index']}-"
             f"{chunk['last_character_index']}"
         )
-        block = f"{header}\n{chunk['content']}".strip()
+        block = f"{header}\n{read_expanded_source(chunk)}".strip()
         separator_size = 2 if context_parts else 0
         remaining_chars = max_context_chars - current_size - separator_size
 
@@ -76,10 +128,8 @@ def build_prompt(query: str, context: str) -> str:
     return (
         "You are answering questions about the vLLM codebase.\n"
         "Use the provided context.\n"
-        "If the context does not contain enough information, say that the "
-        "context does not contain enough information to answer.\n"
-        "Keep the answer concise and self-contained.\n"
-        " Don't repeat yourself.\n\n"
+        "Keep the answer very concise, you must answer in one sentence.\n"
+        "Do not repeat yourself. /no-think\n\n"
         f"Context:\n{context}\n\n"
         f"Question: {query}\n"
         "Answer:"
@@ -89,12 +139,10 @@ def build_prompt(query: str, context: str) -> str:
 def clean_generated_answer(answer: str) -> str:
     """Clean model-only generated text without inventing citations."""
     cleaned = answer.strip()
-    if "</think>" in cleaned:
-        cleaned = cleaned.split("</think>", 1)[-1].strip()
-    if cleaned.startswith("Answer:"):
-        cleaned = cleaned[len("Answer:") :].strip()
     if cleaned.find("."):
-        cleaned = cleaned.split(".", 1)[0].strip() + "."
+        cleaned = cleaned.split(".")[0].strip() + "."
+    elif cleaned.find("\n"):
+        cleaned = cleaned.split("\n")[0].strip()
     return cleaned
 
 
@@ -109,7 +157,7 @@ def generate_answer(query: str, chunks: List[Dict[str, Any]]) -> str:
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
     outputs = model.generate(
         **inputs,
-        max_new_tokens=256,
+        max_new_tokens=96,
         do_sample=False,
         pad_token_id=tokenizer.eos_token_id,
     )
