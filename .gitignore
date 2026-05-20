@@ -1,0 +1,41 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env
+.env.*
+
+# uv and local tool caches
+.uv-cache/
+
+# Project-generated data and large local assets
+# data/raw/
+data/index/
+data/processed/
+data/output/
+
+# Local model/cache directories
+.cache/
+huggingface/
+models/
+
+# Editor and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Local agent metadata
+.agents/
+.codex/

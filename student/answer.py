@@ -37,12 +37,12 @@ def _load_model(local_files_only: bool):
         MODEL_NAME,
         local_files_only=local_files_only,
     )
-    model_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+    model_dtype = torch.float32
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
         local_files_only=local_files_only,
         dtype=model_dtype,
-        device_map="auto",
+        device_map="cpu",
     )
     return tokenizer, model
 
@@ -158,12 +158,13 @@ def build_context(
 
 def build_prompt(query: str, context: str) -> str:
     """Build the grounded generation prompt for Qwen."""
+    retrieved_context = context[:1000].strip()
     return (
         "You are answering questions about the vLLM codebase.\n"
         "Use only the provided context.\n"
         "Write a concise, self-contained answer.\n"
         "Do not repeat yourself. /no-think\n\n"
-        f"Context:\n{context}\n\n"
+        f"Context: {retrieved_context}\n\n\n"
         f"Question: {query}\n"
         "Answer:"
     )
@@ -193,12 +194,11 @@ def generate_answer(query: str, chunks: List[Dict[str, Any]]) -> str:
     prompt = build_prompt(query, context)
     tokenizer, model = get_model()
     inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=96,
-        do_sample=False,
-        pad_token_id=tokenizer.eos_token_id,
-    )
+    with torch.inference_mode():
+        outputs = model.generate(
+            **inputs,
+            max_new_tokens=32,
+        )
     prompt_length = inputs["input_ids"].shape[-1]
     generated_tokens = outputs[0][prompt_length:]
     generated_text = tokenizer.decode(

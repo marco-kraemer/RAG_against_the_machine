@@ -17,6 +17,21 @@ lint:
 	uv run flake8 .
 	uv run mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
 
+answer:
+	uv run python -m student answer "How to configure OpenAI server?" --k 10
+
+search:
+	uv run python -m student search "How to configure OpenAI server?" --k 10
+
+index: 
+	uv run python -m student index
+
+search-dataset:
+	uv run python -m student search_dataset --dataset_path data/datasets/public/UnansweredQuestions/dataset_docs_public.json
+
+answer-dataset:
+	uv run python -m student answer_dataset --student_search_results_path data/output/search_results/dataset_docs_public.json
+
 lint-strict:
 	uv run flake8 .
 	uv run mypy . --strict
