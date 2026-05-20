@@ -6,7 +6,7 @@ try:
 
     from student.answer import answer_query
     from student.indexer import ChunkIndexer
-    from student.search import search
+    from student.search import search, search_dataset
 except ImportError:
     print("Run make install to install the required dependencies.")
     print("Example: uv run python -m student")
@@ -22,8 +22,17 @@ class CLI:
         result = search(query, k)
         print(json.dumps(result.model_dump(), indent=2))
 
-    def search_dataset(self, name, k=10):
-        print(f"Searching dataset: {name} with top-k: {k}")
+    def search_dataset(
+        self,
+        dataset_path,
+        k=10,
+        save_directory="data/output/search_results",
+    ):
+        search_dataset(
+            dataset_path=dataset_path,
+            save_directory=save_directory,
+            k=k,
+        )
 
     def answer(self, query, k=10):
         result = answer_query(query, k=k)
