@@ -4,7 +4,7 @@ try:
 
     import fire
 
-    from student.answer import answer_query
+    from student.answer import answer_dataset, answer_query
     from student.indexer import ChunkIndexer
     from student.search import search, search_dataset
 except ImportError:
@@ -35,11 +35,22 @@ class CLI:
         )
 
     def answer(self, query, k=10):
-        result = answer_query(query, k=k)
+        try:
+            result = answer_query(query, k=k)
+        except RuntimeError as e:
+            print(f"Error generating answer: {e}")
+            sys.exit(1)
         print(json.dumps(result.model_dump(), indent=2))
 
-    def answer_dataset(self, name, k=5):
-        print(f"Answering dataset: {name} with top-k: {k}")
+    def answer_dataset(
+        self,
+        student_search_results_path,
+        save_directory="data/output/search_results_and_answer",
+    ):
+        answer_dataset(
+            student_search_results_path=student_search_results_path,
+            save_directory=save_directory,
+        )
 
     def evaluate(self, model, dataset):
         print(f"Evaluating model: {model} on dataset: {dataset}")

@@ -2,10 +2,15 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List
 import torch
-from student.models import MinimalAnswer, MinimalSource
+from tqdm import tqdm
 
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+from student.models import (
+    MinimalAnswer,
+    MinimalSource,
+    StudentSearchResults,
+    StudentSearchResultsAndAnswer,
+)
+
 os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
@@ -15,31 +20,53 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 _tokenizer = None
 _model = None
 RAW_REPO_PATH = Path("data/raw/vllm-0.10.1")
+MODEL_NAME = "Qwen/Qwen3-0.6B"
+
+
+def _offline_requested() -> bool:
+    """Return whether the user explicitly requested offline model loading."""
+    return (
+        os.environ.get("HF_HUB_OFFLINE") == "1"
+        or os.environ.get("TRANSFORMERS_OFFLINE") == "1"
+    )
+
+
+def _load_model(local_files_only: bool):
+    """Load tokenizer and model with the requested Hugging Face cache policy."""
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_NAME,
+        local_files_only=local_files_only,
+    )
+    model_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL_NAME,
+        local_files_only=local_files_only,
+        dtype=model_dtype,
+        device_map="auto",
+    )
+    return tokenizer, model
 
 
 def get_model():
     global _tokenizer, _model
     if _tokenizer is None or _model is None:
-        model_name = "Qwen/Qwen3-0.6B"
         try:
-            _tokenizer = AutoTokenizer.from_pretrained(
-                model_name,
-                local_files_only=True,
-            )
-
-            model_dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-            _model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                local_files_only=True,
-                dtype=model_dtype,
-                device_map="auto",
-            )
-        except Exception as e:
-            raise RuntimeError(
-                "Could not load Qwen/Qwen3-0.6B from the local Hugging Face "
-                "cache. Cache the model once before running answer generation "
-                "offline."
-            ) from e
+            _tokenizer, _model = _load_model(local_files_only=True)
+        except Exception as local_error:
+            if _offline_requested():
+                raise RuntimeError(
+                    "Could not load Qwen/Qwen3-0.6B from the local Hugging Face "
+                    "cache. Cache the model once before running answer generation "
+                    "offline."
+                ) from local_error
+            try:
+                _tokenizer, _model = _load_model(local_files_only=False)
+            except Exception as remote_error:
+                raise RuntimeError(
+                    "Could not load Qwen/Qwen3-0.6B from the local Hugging Face "
+                    "cache or download it from Hugging Face. Check your network "
+                    "or cache the model before running answer generation."
+                ) from remote_error
     return _tokenizer, _model
 
 
@@ -53,6 +80,21 @@ def chunks_to_sources(chunks: List[Dict[str, Any]]) -> List[MinimalSource]:
         )
         for chunk in chunks
     ]
+
+
+def source_to_chunk(source: MinimalSource) -> Dict[str, Any]:
+    """Convert a public source reference into an internal context chunk."""
+    return {
+        "file_path": source.file_path,
+        "first_character_index": source.first_character_index,
+        "last_character_index": source.last_character_index,
+        "content": "",
+    }
+
+
+def sources_to_chunks(sources: List[MinimalSource]) -> List[Dict[str, Any]]:
+    """Convert public source references into context chunks."""
+    return [source_to_chunk(source) for source in sources]
 
 
 def read_expanded_source(
@@ -118,8 +160,8 @@ def build_prompt(query: str, context: str) -> str:
     """Build the grounded generation prompt for Qwen."""
     return (
         "You are answering questions about the vLLM codebase.\n"
-        "Use the provided context.\n"
-        "Keep the answer very concise, you must answer in one sentence.\n"
+        "Use only the provided context.\n"
+        "Write a concise, self-contained answer.\n"
         "Do not repeat yourself. /no-think\n\n"
         f"Context:\n{context}\n\n"
         f"Question: {query}\n"
@@ -130,11 +172,16 @@ def build_prompt(query: str, context: str) -> str:
 def clean_generated_answer(answer: str) -> str:
     """Clean model-only generated text without inventing citations."""
     cleaned = answer.strip()
-    if cleaned.find("."):
-        cleaned = cleaned.split(".")[0].strip() + "."
-    elif cleaned.find("\n"):
-        cleaned = cleaned.split("\n")[0].strip()
-    return cleaned
+    if not cleaned:
+        return cleaned
+
+    for marker in ("Question:", "Context:", "Answer:"):
+        marker_index = cleaned.find(marker)
+        if marker_index != -1:
+            cleaned = cleaned[:marker_index].strip()
+
+    lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
+    return " ".join(lines)
 
 
 def generate_answer(query: str, chunks: List[Dict[str, Any]]) -> str:
@@ -178,3 +225,65 @@ def answer_query(query: str, k: int = 10) -> MinimalAnswer:
         retrieved_sources=sources,
         answer=answer,
     )
+
+
+def answer_dataset(
+    student_search_results_path: str,
+    save_directory: str,
+) -> Path:
+    """Generate answers for saved search results and write subject JSON."""
+    input_path = Path(student_search_results_path)
+    output_dir = Path(save_directory)
+    output_path = output_dir / input_path.name
+
+    try:
+        with input_path.open("r", encoding="utf-8") as results_file:
+            search_results = StudentSearchResults.model_validate_json(
+                results_file.read()
+            )
+    except Exception as e:
+        print(f"Error loading search results {student_search_results_path}: {e}")
+        raise SystemExit(1) from e
+
+    print(
+        "Loaded "
+        f"{len(search_results.search_results)} questions from "
+        f"{student_search_results_path}"
+    )
+
+    answers: List[MinimalAnswer] = []
+    try:
+        for result in tqdm(search_results.search_results, desc="Answering questions"):
+            chunks = sources_to_chunks(result.retrieved_sources)
+            if chunks:
+                answer = generate_answer(result.question, chunks)
+            else:
+                answer = "I could not find relevant context to answer the question."
+            answers.append(
+                MinimalAnswer(
+                    question_id=result.question_id,
+                    question=result.question,
+                    retrieved_sources=result.retrieved_sources,
+                    answer=answer,
+                )
+            )
+    except RuntimeError as e:
+        print(f"Error generating answers: {e}")
+        raise SystemExit(1) from e
+
+    output = StudentSearchResultsAndAnswer(
+        search_results=answers,
+        k=search_results.k,
+    )
+
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w", encoding="utf-8") as output_file:
+            output_file.write(output.model_dump_json(indent=2))
+            output_file.write("\n")
+    except Exception as e:
+        print(f"Error saving answers to {output_path}: {e}")
+        raise SystemExit(1) from e
+
+    print(f"Saved student_search_results_and_answer to {output_path}")
+    return output_path

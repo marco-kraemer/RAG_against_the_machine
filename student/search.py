@@ -114,7 +114,6 @@ def search_dataset(
     print(f"Loaded {len(dataset.rag_questions)} questions from {dataset_path}")
 
     search_results: List[MinimalSearchResults] = []
-    print(dataset.rag_questions[0])
     for question in tqdm(dataset.rag_questions, desc="Searching questions"):
         chunks = _retrieve_chunks(question.question, k)
         search_results.append(
