@@ -33,14 +33,15 @@ def test_search_returns_subject_model_without_content(
     assert result.model_dump() == {
         "question_id": "cli_query",
         "question": "How does vLLM configure models?",
+        "question_str": "How does vLLM configure models?",
         "retrieved_sources": [
             {
-                "file_path": "docs/index.md",
+                "file_path": "data/raw/vllm-0.10.1/docs/index.md",
                 "first_character_index": 4,
                 "last_character_index": 42,
             },
             {
-                "file_path": "vllm/config.py",
+                "file_path": "data/raw/vllm-0.10.1/vllm/config.py",
                 "first_character_index": 100,
                 "last_character_index": 180,
             },
@@ -59,7 +60,7 @@ def test_cli_search_prints_pretty_json(monkeypatch, capsys) -> None:
             question=query,
             retrieved_sources=[
                 MinimalSource(
-                    file_path="docs/index.md",
+                    file_path="data/raw/vllm-0.10.1/docs/index.md",
                     first_character_index=4,
                     last_character_index=42,
                 )
@@ -74,9 +75,10 @@ def test_cli_search_prints_pretty_json(monkeypatch, capsys) -> None:
     assert output == {
         "question_id": "cli_query",
         "question": "Where is the docs index?",
+        "question_str": "Where is the docs index?",
         "retrieved_sources": [
             {
-                "file_path": "docs/index.md",
+                "file_path": "data/raw/vllm-0.10.1/docs/index.md",
                 "first_character_index": 4,
                 "last_character_index": 42,
             }

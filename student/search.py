@@ -20,13 +20,22 @@ except ImportError:
 
 _retriever = None
 _metadata = None
+RAW_REPO_PREFIX = "data/raw/vllm-0.10.1/"
+
+
+def public_source_path(file_path: str) -> str:
+    """Return the source path shape expected by the moulinette datasets."""
+    normalized = file_path.replace("\\", "/")
+    if normalized.startswith(RAW_REPO_PREFIX):
+        return normalized
+    return f"{RAW_REPO_PREFIX}{normalized}"
 
 
 def chunks_to_sources(chunks: List[Dict[str, Any]]) -> List[MinimalSource]:
     """Convert internal retrieved chunks to public source references."""
     return [
         MinimalSource(
-            file_path=chunk["file_path"],
+            file_path=public_source_path(str(chunk["file_path"])),
             first_character_index=chunk["first_character_index"],
             last_character_index=chunk["last_character_index"],
         )

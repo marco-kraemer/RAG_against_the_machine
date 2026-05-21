@@ -1,7 +1,7 @@
 import uuid
 from typing import List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 class MinimalSource(BaseModel):
@@ -38,6 +38,12 @@ class MinimalSearchResults(BaseModel):
     question_id: str
     question: str
     retrieved_sources: List[MinimalSource]
+
+    @computed_field
+    @property
+    def question_str(self) -> str:
+        """Moulinette-compatible question field."""
+        return self.question
 
 
 class MinimalAnswer(MinimalSearchResults):

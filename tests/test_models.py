@@ -96,6 +96,7 @@ def test_student_search_results_uses_subject_shape() -> None:
             {
                 "question_id": "q1",
                 "question": "How does retrieval work?",
+                "question_str": "How does retrieval work?",
                 "retrieved_sources": [
                     {
                         "file_path": "student/search.py",

@@ -20,6 +20,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 _tokenizer = None
 _model = None
 RAW_REPO_PATH = Path("data/raw/vllm-0.10.1")
+RAW_REPO_PREFIX = "data/raw/vllm-0.10.1/"
 MODEL_NAME = "Qwen/Qwen3-0.6B"
 
 
@@ -74,12 +75,20 @@ def chunks_to_sources(chunks: List[Dict[str, Any]]) -> List[MinimalSource]:
     """Convert retrieved chunks to subject-compliant source metadata."""
     return [
         MinimalSource(
-            file_path=chunk["file_path"],
+            file_path=public_source_path(str(chunk["file_path"])),
             first_character_index=chunk["first_character_index"],
             last_character_index=chunk["last_character_index"],
         )
         for chunk in chunks
     ]
+
+
+def public_source_path(file_path: str) -> str:
+    """Return the source path shape expected by the moulinette datasets."""
+    normalized = file_path.replace("\\", "/")
+    if normalized.startswith(RAW_REPO_PREFIX):
+        return normalized
+    return f"{RAW_REPO_PREFIX}{normalized}"
 
 
 def source_to_chunk(source: MinimalSource) -> Dict[str, Any]:

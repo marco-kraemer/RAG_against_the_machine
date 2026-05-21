@@ -39,3 +39,6 @@ models/
 # Local agent metadata
 .agents/
 .codex/
+
+# Moulinette
+moulinette/

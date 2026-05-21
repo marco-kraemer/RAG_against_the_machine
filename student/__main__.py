@@ -5,6 +5,7 @@ try:
     import fire
 
     from student.answer import answer_dataset, answer_query
+    from student.evaluate import evaluate_search_results
     from student.indexer import ChunkIndexer
     from student.search import search, search_dataset
 except ImportError:
@@ -52,8 +53,12 @@ class CLI:
             save_directory=save_directory,
         )
 
-    def evaluate(self, model, dataset):
-        print(f"Evaluating model: {model} on dataset: {dataset}")
+    def evaluate(self, student_search_results_path, dataset_path, k=10):
+        evaluate_search_results(
+            student_search_results_path=student_search_results_path,
+            dataset_path=dataset_path,
+            k=k,
+        )
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-.PHONY: install run debug clean lint lint-strict
+.PHONY: install run debug clean lint lint-strict answer search index search-dataset answer-dataset evaluate
 
 install:
 	uv sync
@@ -31,6 +31,9 @@ search-dataset:
 
 answer-dataset:
 	uv run python -m student answer_dataset --student_search_results_path data/output/search_results/dataset_docs_public.json
+
+evaluate:
+	uv run python -m student evaluate --student_search_results_path data/output/search_results/dataset_docs_public.json --dataset_path data/datasets/public/AnsweredQuestions/dataset_docs_public.json --k 10
 
 lint-strict:
 	uv run flake8 .
