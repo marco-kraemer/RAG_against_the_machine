@@ -68,8 +68,6 @@ search-code:
 
 search-all: search-docs search-code
 
-search-dataset: search-docs
-
 answer-dataset:
 	$(STUDENT) answer_dataset --student_search_results_path $(DOCS_RESULTS)
 
