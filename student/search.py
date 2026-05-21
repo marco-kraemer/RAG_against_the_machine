@@ -81,6 +81,8 @@ def _retrieve_chunks(query: str, k: int) -> List[Dict[str, Any]]:
 
     query_tokens = bm25s.tokenize(query, stopwords="en", show_progress=False)
     docs, _ = retriever.retrieve(query_tokens, k=k, show_progress=False)
+    print(docs)
+    exit(1)
     chunks: List[Dict[str, Any]] = []
     for match in docs[0]:
         id: int = match["id"]

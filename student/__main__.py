@@ -6,7 +6,7 @@ try:
 
     from student.answer import answer_dataset, answer_query
     from student.evaluate import evaluate_search_results
-    from student.indexer import ChunkIndexer
+    from student.indexer import index_repository
     from student.search import search, search_dataset
 except ImportError:
     print("Run make install to install the required dependencies.")
@@ -16,8 +16,7 @@ except ImportError:
 
 class CLI:
     def index(self, max_chunk_size=2000):
-        indexer = ChunkIndexer()
-        indexer.index_repository(max_chunk_size=max_chunk_size)
+        index_repository(max_chunk_size=max_chunk_size)
 
     def search(self, query, k=10):
         result = search(query, k)
