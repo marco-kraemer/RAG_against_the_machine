@@ -7,18 +7,8 @@ from typing import List
 import bm25s
 from tqdm import tqdm
 
-CODE_EXTENSIONS = {".py", ".cpp", ".cu", ".cuh", ".h", ".hpp", ".js", ".cmake"}
-TEXT_EXTENSIONS = {
-    ".md",
-    ".txt",
-    ".rst",
-    ".json",
-    ".jsonl",
-    ".yaml",
-    ".yml",
-    ".toml",
-    ".jinja",
-}
+CODE_EXTENSIONS = ".py"
+TEXT_EXTENSIONS = ".md"
 MARKDOWN_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 
 
@@ -124,7 +114,7 @@ def _prefixed_body_chunks(
     return chunks
 
 
-def chunk_markdown_sections(text: str, max_chunk_size: int) -> List[dict]:
+def chunk_text_file(text: str, max_chunk_size: int) -> List[dict]:
     """Chunk Markdown by sections while preserving heading context."""
     chunks: List[dict] = []
     headings: List[str] = []
@@ -172,21 +162,6 @@ def chunk_markdown_sections(text: str, max_chunk_size: int) -> List[dict]:
     return chunks
 
 
-def chunk_text_file(text, max_chunk_size) -> List[dict]:
-    """Chunk text and documentation files."""
-    return chunk_markdown_sections(text, max_chunk_size)
-
-
-def chunk_plain_text_file(text, max_chunk_size) -> List[dict]:
-    """Chunk non-Markdown text files with the generic fallback strategy."""
-    return _chunk_by_blocks(text, max_chunk_size)
-
-
-def chunk_text(text, max_chunk_size) -> List[dict]:
-    """Backward-compatible text chunking wrapper."""
-    return chunk_text_file(text, max_chunk_size)
-
-
 def chunk_file_content(
     file_path: Path,
     content: str,
@@ -195,8 +170,6 @@ def chunk_file_content(
     """Route file content to the appropriate chunking strategy."""
     if file_path.suffix in CODE_EXTENSIONS:
         return chunk_code_file(content, max_chunk_size)
-    if file_path.suffix == ".md":
-        return chunk_text_file(content, max_chunk_size)
     return chunk_text_file(content, max_chunk_size)
 
 
@@ -213,7 +186,8 @@ def index_repository(
     files_to_index: List[Path] = []
     for root, _, files in os.walk(repo):
         for file in files:
-            files_to_index.append(Path(root) / file)
+            if file.endswith(CODE_EXTENSIONS) or file.endswith(TEXT_EXTENSIONS):
+                files_to_index.append(Path(root) / file)
 
     print(f"Found {len(files_to_index)} files. Chunking...")
 
