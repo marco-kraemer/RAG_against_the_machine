@@ -11,15 +11,12 @@ CODE_EXTENSIONS = ".py"
 TEXT_EXTENSIONS = ".md"
 
 
-def chunk_code_file(text, max_chunk_size) -> List[dict]:
+def chunk_file(text: str, max_chunk_size: int) -> List[dict]:
     """Chunk code files."""
-    return _chunk_with_text_splitter(text, max_chunk_size)
-
-
-def _chunk_with_text_splitter(text: str, max_chunk_size: int) -> List[dict]:
+    chunk_overlap = max_chunk_size // 10  # 10% overlap
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=max_chunk_size,
-        chunk_overlap=0,
+        chunk_overlap=chunk_overlap,
         add_start_index=True,
     )
     chunks: List[dict] = []
@@ -36,24 +33,6 @@ def _chunk_with_text_splitter(text: str, max_chunk_size: int) -> List[dict]:
         )
 
     return chunks
-
-
-def chunk_text_file(text: str, max_chunk_size: int) -> List[dict]:
-    """Chunk Markdown files."""
-    return _chunk_with_text_splitter(text, max_chunk_size)
-
-
-def chunk_file_content(
-    file_path: Path,
-    content: str,
-    max_chunk_size: int,
-) -> List[dict]:
-    """Route file content to the appropriate chunking strategy."""
-    if file_path.suffix in CODE_EXTENSIONS:
-        return chunk_code_file(content, max_chunk_size)
-    if file_path.suffix in TEXT_EXTENSIONS:
-        return chunk_text_file(content, max_chunk_size)
-    return []
 
 
 def index_repository(
@@ -87,7 +66,7 @@ def index_repository(
                 content = f.read()
 
             relative_path = os.path.relpath(file_path, repo)
-            file_chunks = chunk_file_content(file_path, content, max_chunk_size)
+            file_chunks = chunk_file(content, max_chunk_size)
 
             for chunk in file_chunks:
                 chunk["file_path"] = relative_path
