@@ -135,45 +135,26 @@ def read_expanded_source(
 
 def build_context(
     chunks: List[Dict[str, Any]],
-    max_context_chars: int = 6000,
+    max_sources: int = 3,
 ) -> str:
-    """Build a bounded, source-labeled context from retrieved chunks."""
+    """Build source-labeled context from the first retrieved sources."""
     context_parts: List[str] = []
-    current_size = 0
 
-    for index, chunk in enumerate(chunks, start=1):
-        header = (
-            f"[source {index}] "
-            f"{chunk['file_path']}:"
-            f"{chunk['first_character_index']}-"
-            f"{chunk['last_character_index']}"
-        )
+    for index, chunk in enumerate(chunks[:max_sources], start=1):
+        header = f"[source {index}] {chunk['file_path']}"
         block = f"{header}\n{read_expanded_source(chunk)}".strip()
-        separator_size = 2 if context_parts else 0
-        remaining_chars = max_context_chars - current_size - separator_size
-
-        if remaining_chars <= 0:
-            break
-        if len(block) > remaining_chars:
-            if remaining_chars <= len(header) + 1:
-                break
-            block = block[:remaining_chars].rstrip()
-
         context_parts.append(block)
-        current_size += len(block) + separator_size
 
     return "\n\n".join(context_parts)
 
 
 def build_prompt(query: str, context: str) -> str:
     """Build the grounded generation prompt for Qwen."""
-    retrieved_context = context[:1000].strip()
     return (
-        "You are answering questions about the vLLM codebase.\n"
-        "Use only the provided context.\n"
-        "Write a concise, self-contained answer.\n"
-        "Do not repeat yourself. /no-think\n\n"
-        f"Context: {retrieved_context}\n\n\n"
+        "Answer the question about vLLM using only the context below. "
+        "Be concise, self-contained, faithful to the sources, and cite source numbers. "
+        "If the context is insufficient, say so. /no-think\n\n"
+        f"Context:\n{context}\n\n"
         f"Question: {query}\n"
         "Answer:"
     )

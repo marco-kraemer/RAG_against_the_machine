@@ -49,7 +49,7 @@ def get_retriever():
     if _retriever is None:
         try:
             _retriever = bm25s.BM25.load(
-                "./data/index/bm25_model",
+                "data/processed/bm25_index",
                 load_corpus=True,
             )
         except Exception as e:
@@ -64,7 +64,7 @@ def get_metadata() -> List[Dict[str, Any]]:
     global _metadata
     if _metadata is None:
         try:
-            with open("./data/index/chunks_metadata.json", "r") as f:
+            with open("data/processed/chunks.json", "r") as f:
                 _metadata = json.load(f)
         except Exception as e:
             print(f"Error loading chunks metadata: {e}")

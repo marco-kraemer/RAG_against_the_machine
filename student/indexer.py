@@ -11,7 +11,7 @@ class ChunkIndexer:
     def __init__(
         self,
         repo_path="data/raw/vllm-0.10.1",
-        index_dir="data/index",
+        index_dir="data/processed",
     ):
         self.repo_path = Path(repo_path)
         self.index_dir = Path(index_dir)
@@ -62,7 +62,7 @@ class ChunkIndexer:
                     else:
                         # Step 3: Hard character split
                         for i in range(0, len(sub_block), max_chunk_size):
-                            chunk_content = sub_block[i: i + max_chunk_size]
+                            chunk_content = sub_block[i : i + max_chunk_size]
                             final_chunks.append(
                                 {
                                     "content": chunk_content,
@@ -126,10 +126,10 @@ class ChunkIndexer:
 
         # 4. Save index and metadata
         self.index_dir.mkdir(parents=True, exist_ok=True)
-        retriever.save(self.index_dir / "bm25_model", corpus=corpus)
+        retriever.save(self.index_dir / "bm25_index", corpus=corpus)
 
         # Save chunk metadata for retrieval mapping
-        with open(self.index_dir / "chunks_metadata.json", "w") as f:
+        with open(self.index_dir / "chunks.json", "w") as f:
             json.dump(all_chunks, f, indent=2)
 
         print(f"Indexing complete. Index saved to {self.index_dir}")
