@@ -1,113 +1,37 @@
 import json
 import os
-import re
 from pathlib import Path
 from typing import List
 
 import bm25s
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from tqdm import tqdm
 
 CODE_EXTENSIONS = ".py"
 TEXT_EXTENSIONS = ".md"
-MARKDOWN_HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
-
-
-def _chunk_by_blocks(text, max_chunk_size) -> List[dict]:
-    """
-    Splits text into chunks based on double newlines, then single newlines,
-    then hard character splits if necessary.
-    """
-    final_chunks: List[dict] = []
-
-    # Step 1: Split by double newlines
-    blocks: List[str] = text.split("\n\n")
-    current_offset: int = 0
-
-    for block in blocks:
-        block_start: int = text.find(block, current_offset)
-        if block_start == -1:
-            block_start = current_offset
-
-        if len(block) <= max_chunk_size:
-            final_chunks.append(
-                {
-                    "content": block,
-                    "first_character_index": block_start,
-                    "last_character_index": block_start + len(block),
-                }
-            )
-        else:
-            # Step 2: Split by single newline
-            sub_blocks: List[str] = block.split("\n")
-            sub_offset: int = block_start
-            for sub_block in sub_blocks:
-                actual_sub_start: int = text.find(sub_block, sub_offset)
-                if actual_sub_start == -1:
-                    actual_sub_start = sub_offset
-
-                if len(sub_block) <= max_chunk_size:
-                    if sub_block.strip():  # Skip empty sub-blocks
-                        final_chunks.append(
-                            {
-                                "content": sub_block,
-                                "first_character_index": actual_sub_start,
-                                "last_character_index": actual_sub_start
-                                + len(sub_block),
-                            }
-                        )
-                else:
-                    # Step 3: Hard character split
-                    for i in range(0, len(sub_block), max_chunk_size):
-                        chunk_content = sub_block[i : i + max_chunk_size]
-                        final_chunks.append(
-                            {
-                                "content": chunk_content,
-                                "first_character_index": actual_sub_start + i,
-                                "last_character_index": actual_sub_start
-                                + i
-                                + len(chunk_content),
-                            }
-                        )
-                sub_offset = actual_sub_start + len(sub_block)
-
-        current_offset = block_start + len(block)
-
-    return final_chunks
 
 
 def chunk_code_file(text, max_chunk_size) -> List[dict]:
     """Chunk code files."""
-    return _chunk_by_blocks(text, max_chunk_size)
+    return _chunk_with_text_splitter(text, max_chunk_size)
 
 
-def _heading_prefix(headings: List[str]) -> str:
-    """Build repeated heading context for a text chunk."""
-    return "\n".join(headings)
-
-
-def _prefixed_body_chunks(
-    body: str,
-    body_start: int,
-    headings: List[str],
-    max_chunk_size: int,
-) -> List[dict]:
-    """Chunk section body text and attach heading context to every chunk."""
-    body_chunks = _chunk_by_blocks(body, max_chunk_size)
-    heading_prefix = _heading_prefix(headings)
+def _chunk_with_text_splitter(text: str, max_chunk_size: int) -> List[dict]:
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=max_chunk_size,
+        chunk_overlap=0,
+        add_start_index=True,
+    )
     chunks: List[dict] = []
 
-    for chunk in body_chunks:
-        content = str(chunk["content"]).strip()
-        if not content:
-            continue
-        if heading_prefix:
-            content = f"{heading_prefix}\n\n{content}"
+    for document in splitter.create_documents([text]):
+        start_index = int(document.metadata.get("start_index", 0))
+        content = document.page_content
         chunks.append(
             {
                 "content": content,
-                "first_character_index": body_start
-                + int(chunk["first_character_index"]),
-                "last_character_index": body_start + int(chunk["last_character_index"]),
+                "first_character_index": start_index,
+                "last_character_index": start_index + len(content),
             }
         )
 
@@ -115,51 +39,8 @@ def _prefixed_body_chunks(
 
 
 def chunk_text_file(text: str, max_chunk_size: int) -> List[dict]:
-    """Chunk Markdown by sections while preserving heading context."""
-    chunks: List[dict] = []
-    headings: List[str] = []
-    body_lines: List[str] = []
-    body_start: int | None = None
-    cursor = 0
-    found_heading = False
-
-    def flush_body() -> None:
-        nonlocal body_lines, body_start
-        if body_start is None:
-            return
-        body = "".join(body_lines).strip()
-        if body:
-            chunks.extend(
-                _prefixed_body_chunks(
-                    body,
-                    body_start,
-                    headings,
-                    max_chunk_size,
-                )
-            )
-        body_lines = []
-        body_start = None
-
-    for line in text.splitlines(keepends=True):
-        match = MARKDOWN_HEADING_RE.match(line.rstrip("\n"))
-        if match:
-            flush_body()
-            found_heading = True
-            level = len(match.group(1))
-            heading = line.strip()
-            headings = headings[: level - 1]
-            headings.append(heading)
-        else:
-            if body_start is None:
-                body_start = cursor
-            body_lines.append(line)
-        cursor += len(line)
-
-    flush_body()
-
-    if not found_heading:
-        return _chunk_by_blocks(text, max_chunk_size)
-    return chunks
+    """Chunk Markdown files."""
+    return _chunk_with_text_splitter(text, max_chunk_size)
 
 
 def chunk_file_content(
@@ -170,7 +51,9 @@ def chunk_file_content(
     """Route file content to the appropriate chunking strategy."""
     if file_path.suffix in CODE_EXTENSIONS:
         return chunk_code_file(content, max_chunk_size)
-    return chunk_text_file(content, max_chunk_size)
+    if file_path.suffix in TEXT_EXTENSIONS:
+        return chunk_text_file(content, max_chunk_size)
+    return []
 
 
 def index_repository(

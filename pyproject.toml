@@ -9,6 +9,7 @@ dependencies = [
     "bm25s>=0.3.4",
     "chromadb>=1.5.8",
     "fire>=0.7.1",
+    "langchain-text-splitters>=1.1.2",
     "numpy>=2.2.6",
     "pydantic>=2.13.3",
     "scikit-learn>=1.7.2",

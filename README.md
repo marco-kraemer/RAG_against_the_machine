@@ -116,3 +116,4 @@ $ uv run python -m student search "How to configure OpenAI server?" -k 2
 - [Make your own RAG](https://huggingface.co/blog/ngxson/make-your-own-rag)
 - [Understanding TF-IDF and BM-25](https://kmwllc.com/index.php/2020/03/20/understanding-tf-idf-and-bm-25/)
 - [BM25S](https://bm25s.github.io/)
+- [LangChain - Markdown Text Splitter](https://docs.langchain.com/oss/python/integrations/splitters/markdown_header_metadata_splitter)
