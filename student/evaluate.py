@@ -9,13 +9,13 @@ from student.models import (
     StudentSearchResults,
 )
 
-
 RAW_REPO_PREFIX = "data/raw/vllm-0.10.1/"
 MINIMUM_OVERLAP_RATIO = 0.05
 
 
 def normalize_source_path(path: str) -> str:
-    """Normalize source paths so indexed and ground-truth paths compare equally."""
+    """Normalize source paths so indexed and ground-truth
+    paths compare equally."""
     normalized = path.replace("\\", "/")
     while normalized.startswith("./"):
         normalized = normalized[2:]
@@ -97,10 +97,7 @@ def _metric_names(k: int) -> List[int]:
 def _student_results_by_id(
     student_results: StudentSearchResults,
 ) -> Dict[str, MinimalSearchResults]:
-    return {
-        result.question_id: result
-        for result in student_results.search_results
-    }
+    return {result.question_id: result for result in student_results.search_results}
 
 
 def evaluate_search_results(

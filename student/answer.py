@@ -15,7 +15,7 @@ os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
 os.environ.setdefault("TRANSFORMERS_VERBOSITY", "error")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa
 
 _tokenizer = None
 _model = None
@@ -33,7 +33,8 @@ def _offline_requested() -> bool:
 
 
 def _load_model(local_files_only: bool):
-    """Load tokenizer and model with the requested Hugging Face cache policy."""
+    """Load tokenizer and model with the requested
+    Hugging Face cache policy."""
     tokenizer = AutoTokenizer.from_pretrained(
         MODEL_NAME,
         local_files_only=local_files_only,
@@ -56,17 +57,16 @@ def get_model():
         except Exception as local_error:
             if _offline_requested():
                 raise RuntimeError(
-                    "Could not load Qwen/Qwen3-0.6B from the local Hugging Face "
-                    "cache. Cache the model once before running answer generation "
-                    "offline."
+                    "Could not load Qwen/Qwen3-0.6B from the local "
+                    "Hugging Face cache. Cache the model once before "
+                    "running answer generation offline."
                 ) from local_error
             try:
                 _tokenizer, _model = _load_model(local_files_only=False)
             except Exception as remote_error:
                 raise RuntimeError(
-                    "Could not load Qwen/Qwen3-0.6B from the local Hugging Face "
-                    "cache or download it from Hugging Face. Check your network "
-                    "or cache the model before running answer generation."
+                    "Could not load Qwen/Qwen3-0.6B from Hugging Face "
+                    "cache or download it from Hugging Face."
                 ) from remote_error
     return _tokenizer, _model
 
@@ -152,7 +152,7 @@ def build_prompt(query: str, context: str) -> str:
     """Build the grounded generation prompt for Qwen."""
     return (
         "Answer the question about vLLM using only the context below. "
-        "Be concise, self-contained, faithful to the sources, and cite source numbers. "
+        "Be concise, self-contained, faithful to the sources. "
         "If the context is insufficient, say so. /no-think\n\n"
         f"Context:\n{context}\n\n"
         f"Question: {query}\n"
@@ -232,7 +232,7 @@ def answer_dataset(
                 results_file.read()
             )
     except Exception as e:
-        print(f"Error loading search results {student_search_results_path}: {e}")
+        print(f"Error loading results {student_search_results_path}: {e}")
         raise SystemExit(1) from e
 
     print(
@@ -243,12 +243,15 @@ def answer_dataset(
 
     answers: List[MinimalAnswer] = []
     try:
-        for result in tqdm(search_results.search_results, desc="Answering questions"):
+        for result in tqdm(
+            search_results.search_results,
+            desc="Answering questions",
+        ):
             chunks = sources_to_chunks(result.retrieved_sources)
             if chunks:
                 answer = generate_answer(result.question, chunks)
             else:
-                answer = "I could not find relevant context to answer the question."
+                answer = "I could not find relevant context."
             answers.append(
                 MinimalAnswer(
                     question_id=result.question_id,

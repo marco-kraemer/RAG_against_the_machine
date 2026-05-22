@@ -12,7 +12,7 @@ TEXT_EXTENSIONS = ".md"
 
 
 def chunk_file(text: str, max_chunk_size: int) -> List[dict]:
-    """Chunk code files."""
+    """Chunk files using RecursiveCharacterTextSplitter."""
     chunk_overlap = max_chunk_size // 10  # 10% overlap
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=max_chunk_size,
@@ -20,7 +20,6 @@ def chunk_file(text: str, max_chunk_size: int) -> List[dict]:
         add_start_index=True,
     )
     chunks: List[dict] = []
-
     for document in splitter.create_documents([text]):
         start_index = int(document.metadata.get("start_index", 0))
         content = document.page_content
@@ -83,7 +82,6 @@ def index_repository(
     # 3. Create BM25 index
     corpus: List = [c["content"] for c in all_chunks]
 
-    # Simple tokenization for BM25S
     corpus_tokens = bm25s.tokenize(corpus, stopwords="en")
     retriever = bm25s.BM25()
     retriever.index(corpus_tokens)
