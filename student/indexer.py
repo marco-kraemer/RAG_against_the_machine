@@ -4,14 +4,11 @@ from pathlib import Path
 from typing import List
 
 import bm25s
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter, Language
 from tqdm import tqdm
 
-CODE_EXTENSIONS = ".py"
-TEXT_EXTENSIONS = ".md"
 
-
-def chunk_file(text: str, max_chunk_size: int) -> List[dict]:
+def chunk_text(text: str, max_chunk_size: int) -> List[dict]:
     """Chunk files using RecursiveCharacterTextSplitter."""
     chunk_overlap = max_chunk_size // 10  # 10% overlap
     splitter = RecursiveCharacterTextSplitter(
@@ -34,6 +31,35 @@ def chunk_file(text: str, max_chunk_size: int) -> List[dict]:
     return chunks
 
 
+def chunk_code(text: str, max_chunk_size: int) -> List[dict]:
+    """Chunk files using RecursiveCharacterTextSplitter."""
+    chunk_overlap = max_chunk_size // 2  # 50% overlap
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=max_chunk_size,
+        chunk_overlap=chunk_overlap,
+        add_start_index=True,
+    )
+    chunks: List[dict] = []
+    for document in splitter.create_documents([text]):
+        start_index = int(document.metadata.get("start_index", 0))
+        content = document.page_content
+        chunks.append(
+            {
+                "content": content,
+                "first_character_index": start_index,
+                "last_character_index": start_index + len(content),
+            }
+        )
+
+    return chunks
+
+
+def chunk_file(text: str, max_chunk_size: int, file_extension: str) -> List[dict]:
+    if file_extension == ".py":
+        return chunk_code(text, max_chunk_size)
+    return chunk_text(text, max_chunk_size)
+
+
 def index_repository(
     repo_path="data/raw/vllm-0.10.1",
     index_dir="data/processed",
@@ -47,7 +73,7 @@ def index_repository(
     files_to_index: List[Path] = []
     for root, _, files in os.walk(repo):
         for file in files:
-            if file.endswith(CODE_EXTENSIONS) or file.endswith(TEXT_EXTENSIONS):
+            if file.endswith(".py") or file.endswith(".md"):
                 files_to_index.append(Path(root) / file)
 
     print(f"Found {len(files_to_index)} files. Chunking...")
@@ -65,7 +91,7 @@ def index_repository(
                 content = f.read()
 
             relative_path = os.path.relpath(file_path, repo)
-            file_chunks = chunk_file(content, max_chunk_size)
+            file_chunks = chunk_file(content, max_chunk_size, file_path.suffix)
 
             for chunk in file_chunks:
                 chunk["file_path"] = relative_path
