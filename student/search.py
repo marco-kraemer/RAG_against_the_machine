@@ -2,7 +2,7 @@ try:
     import json
     import sys
     from pathlib import Path
-    from typing import Any, Dict, List
+    from typing import Any, Dict, List, Optional
 
     import bm25s
     from tqdm import tqdm
@@ -18,8 +18,8 @@ except ImportError:
     sys.exit(1)
 
 
-_retriever = None
-_metadata = None
+_retriever: Optional[Any] = None
+_metadata: Optional[List[Dict[str, Any]]] = None
 RAW_REPO_PREFIX = "data/raw/vllm-0.10.1/"
 
 
@@ -43,7 +43,7 @@ def chunks_to_sources(chunks: List[Dict[str, Any]]) -> List[MinimalSource]:
     ]
 
 
-def get_retriever():
+def get_retriever() -> Any:
     """Load and cache the BM25 retriever for warm in-process searches."""
     global _retriever
     if _retriever is None:
@@ -65,10 +65,12 @@ def get_metadata() -> List[Dict[str, Any]]:
     if _metadata is None:
         try:
             with open("data/processed/chunks.json", "r") as f:
-                _metadata = json.load(f)
+                loaded: List[Dict[str, Any]] = json.load(f)
+                _metadata = loaded
         except Exception as e:
             print(f"Error loading chunks metadata: {e}")
             sys.exit(1)
+    assert _metadata is not None
     return _metadata
 
 

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List
 
 import bm25s
-from langchain_text_splitters import RecursiveCharacterTextSplitter, Language
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from tqdm import tqdm
 
 
@@ -54,16 +54,18 @@ def chunk_code(text: str, max_chunk_size: int) -> List[dict]:
     return chunks
 
 
-def chunk_file(text: str, max_chunk_size: int, file_extension: str) -> List[dict]:
+def chunk_file(
+    text: str, max_chunk_size: int, file_extension: str
+) -> List[dict]:
     if file_extension == ".py":
         return chunk_code(text, max_chunk_size)
     return chunk_text(text, max_chunk_size)
 
 
 def index_repository(
-    repo_path="data/raw/vllm-0.10.1",
-    index_dir="data/processed",
-    max_chunk_size=2000,
+    repo_path: str = "data/raw/vllm-0.10.1",
+    index_dir: str = "data/processed",
+    max_chunk_size: int = 2000,
 ) -> None:
     repo = Path(repo_path)
     output_dir = Path(index_dir)

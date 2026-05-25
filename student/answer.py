@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 import torch
 from tqdm import tqdm
 
@@ -17,8 +17,8 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa
 
-_tokenizer = None
-_model = None
+_tokenizer: Optional[Any] = None
+_model: Optional[Any] = None
 RAW_REPO_PATH = Path("data/raw/vllm-0.10.1")
 RAW_REPO_PREFIX = "data/raw/vllm-0.10.1/"
 MODEL_NAME = "Qwen/Qwen3-0.6B"
@@ -32,7 +32,7 @@ def _offline_requested() -> bool:
     )
 
 
-def _load_model(local_files_only: bool):
+def _load_model(local_files_only: bool) -> Tuple[Any, Any]:
     """Load tokenizer and model with the requested
     Hugging Face cache policy."""
     tokenizer = AutoTokenizer.from_pretrained(
@@ -49,7 +49,7 @@ def _load_model(local_files_only: bool):
     return tokenizer, model
 
 
-def get_model():
+def get_model() -> Tuple[Any, Any]:
     global _tokenizer, _model
     if _tokenizer is None or _model is None:
         try:
@@ -68,6 +68,7 @@ def get_model():
                     "Could not load Qwen/Qwen3-0.6B from Hugging Face "
                     "cache or download it from Hugging Face."
                 ) from remote_error
+    assert _tokenizer is not None and _model is not None
     return _tokenizer, _model
 
 

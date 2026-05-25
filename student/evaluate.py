@@ -34,7 +34,9 @@ def source_overlap_ratio(
     ):
         return 0.0
 
-    expected_length = expected.last_character_index - expected.first_character_index
+    expected_length = (
+        expected.last_character_index - expected.first_character_index
+    )
     if expected_length <= 0:
         return 0.0
 
@@ -70,7 +72,9 @@ def recall_for_question(
         return 0.0
 
     found_count = sum(
-        1 for expected in expected_sources if source_found(expected, retrieved_sources)
+        1
+        for expected in expected_sources
+        if source_found(expected, retrieved_sources)
     )
     return found_count / len(expected_sources)
 
@@ -97,7 +101,10 @@ def _metric_names(k: int) -> List[int]:
 def _student_results_by_id(
     student_results: StudentSearchResults,
 ) -> Dict[str, MinimalSearchResults]:
-    return {result.question_id: result for result in student_results.search_results}
+    return {
+        result.question_id: result
+        for result in student_results.search_results
+    }
 
 
 def evaluate_search_results(
@@ -105,10 +112,13 @@ def evaluate_search_results(
     dataset_path: str,
     k: int = 10,
 ) -> Dict[str, float]:
-    """Evaluate saved search results against answered ground-truth questions."""
+    """Evaluate saved search results against answered
+    ground-truth questions."""
     try:
         dataset = _load_dataset(Path(dataset_path))
-        student_results = _load_search_results(Path(student_search_results_path))
+        student_results = _load_search_results(
+            Path(student_search_results_path)
+        )
     except Exception as e:
         print(f"Error loading evaluation inputs: {e}")
         raise SystemExit(1) from e
@@ -135,7 +145,9 @@ def evaluate_search_results(
     for question in questions_with_sources:
         student_result = results_by_id.get(question.question_id)
         retrieved_sources = (
-            student_result.retrieved_sources if student_result is not None else []
+            student_result.retrieved_sources
+            if student_result is not None
+            else []
         )
 
         for metric_k in metric_ks:
@@ -154,7 +166,10 @@ def evaluate_search_results(
 
     print("Student data is valid: True")
     print(f"Total number of questions: {len(answered_questions)}")
-    print(f"Total number of questions with sources: {len(questions_with_sources)}")
+    print(
+        "Total number of questions with sources: "
+        f"{len(questions_with_sources)}"
+    )
     print(
         "Total number of questions with student sources: "
         f"{len(questions_with_student_sources)}"

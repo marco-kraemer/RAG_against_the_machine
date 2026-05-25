@@ -1,5 +1,5 @@
 import uuid
-from typing import List
+from typing import List, Sequence
 
 from pydantic import BaseModel, Field, computed_field
 
@@ -39,7 +39,7 @@ class MinimalSearchResults(BaseModel):
     question: str
     retrieved_sources: List[MinimalSource]
 
-    @computed_field
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def question_str(self) -> str:
         """Moulinette-compatible question field."""
@@ -55,11 +55,11 @@ class MinimalAnswer(MinimalSearchResults):
 class StudentSearchResults(BaseModel):
     """Top-k search results for a dataset."""
 
-    search_results: List[MinimalSearchResults]
+    search_results: Sequence[MinimalSearchResults]
     k: int
 
 
 class StudentSearchResultsAndAnswer(StudentSearchResults):
     """Top-k search results enriched with generated answers."""
 
-    search_results: List[MinimalAnswer]
+    search_results: Sequence[MinimalAnswer]
