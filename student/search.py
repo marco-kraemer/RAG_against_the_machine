@@ -2,7 +2,7 @@ try:
     import json
     import sys
     from pathlib import Path
-    from typing import Any, Dict, List, Optional
+    from typing import Any, Dict, List, Optional, Tuple
 
     import bm25s
     from tqdm import tqdm
@@ -20,7 +20,13 @@ except ImportError:
 
 _retriever: Optional[Any] = None
 _metadata: Optional[List[Dict[str, Any]]] = None
+_query_cache: Dict[Tuple[str, int], List[Dict[str, Any]]] = {}
 RAW_REPO_PREFIX = "data/raw/vllm-0.10.1/"
+
+
+def clear_query_cache() -> None:
+    """Empty the query result cache (e.g. after re-indexing)."""
+    _query_cache.clear()
 
 
 def public_source_path(file_path: str) -> str:
@@ -77,7 +83,14 @@ def get_metadata() -> List[Dict[str, Any]]:
 def _retrieve_chunks(query: str, k: int) -> List[Dict[str, Any]]:
     """Internal function to retrieve top-k chunks for a query.
     BM25 returns document IDs and scores,
-    we use the IDs to look up chunk metadata and content."""
+    we use the IDs to look up chunk metadata and content.
+    Results are memoised by (query, k) so a repeated query is
+    served from the query cache without re-running BM25."""
+    cache_key = (query, k)
+    cached = _query_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
     retriever = get_retriever()
     metadata = get_metadata()
 
@@ -94,6 +107,8 @@ def _retrieve_chunks(query: str, k: int) -> List[Dict[str, Any]]:
         data["last_character_index"] = source["last_character_index"]
         data["content"] = source["content"]
         chunks.append(data)
+
+    _query_cache[cache_key] = chunks
     return chunks
 
 

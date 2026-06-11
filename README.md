@@ -83,6 +83,24 @@ Both honour the configurable maximum chunk size (default `2000` characters). The
 
 We utilized **BM25** (Best Matching 25) powered by the `bm25s` Python library. It offers rapid and exact lexical searching via Term Frequency-Inverse Document Frequency (TF-IDF) mechanics, optimized for high recall on specific code queries and terminologies standard in a framework codebase.
 
+## Bonus: Result Caching
+
+We implement the subject's **result caching** bonus at two levels, both working and demonstrable:
+
+- **Index caching** — the BM25 store and `chunks.json` are built once by `indexer.py` and persisted to `data/processed/`. At search time `search.py` loads them lazily into the module-level caches `_retriever` / `_metadata` (via `get_retriever()` / `get_metadata()`), so the corpus is tokenized and loaded only once per process instead of on every query.
+- **Query caching** — `_retrieve_chunks()` memoizes its top-k result by `(query, k)` in a module-level `_query_cache` dict. A repeated query is served directly from the cache, skipping the BM25 tokenize+retrieve entirely. The cache is transparent — it returns identical results, so it has **no effect on recall@k** — and `clear_query_cache()` resets it (e.g. after re-indexing within the same process).
+
+The query cache is easy to observe: issuing the same query twice returns the exact same object on the second call without touching BM25.
+
+```bash
+uv run python -c "
+from student.search import _retrieve_chunks, _query_cache
+a = _retrieve_chunks('How to configure OpenAI server?', 5)
+b = _retrieve_chunks('How to configure OpenAI server?', 5)
+print('cache size:', len(_query_cache), 'served from cache:', a is b)
+"
+```
+
 ## Performance Analysis
 
 The evaluation module computes `Recall@k` for k={1, 3, 5, 10}. The retrieval system successfully identifies relevant sources by ensuring at least 5% textual overlap. BM25 performs exceptionally well for exact keyword matching within code snippets (e.g., function names, variable names), providing a robust foundation for the generator.
