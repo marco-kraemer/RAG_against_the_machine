@@ -72,7 +72,12 @@ The system consists of three main modules:
 
 ## Chunking Strategy
 
-The ingestion system uses LangChain's `RecursiveCharacterTextSplitter`, which recursively splits text on a hierarchy of separators (paragraphs, then lines, then characters) until each chunk fits the configured maximum size (e.g., `2000` characters). The splitter runs with `add_start_index=True`, so every chunk records its exact substring offset in the original file and character indices map perfectly to ground-truth validations. Code files (`.py`) use a larger overlap (50%) than prose (10%) to keep function and class boundaries intact across chunks.
+The ingestion system applies a **different strategy per file type**, both built on LangChain's `RecursiveCharacterTextSplitter` with `add_start_index=True` (so every chunk records its exact substring offset in the original file and character indices map perfectly to ground-truth validation):
+
+- **Python code (`.py`)** — `RecursiveCharacterTextSplitter.from_language(Language.PYTHON, ...)` splits on Python-structural separators (`\nclass `, `\ndef `, `\n\tdef `, …) so chunks align to real code units (classes, functions) instead of arbitrary prose breaks. Uses **50% overlap** so a definition is never lost across a chunk boundary.
+- **Prose / Markdown (`.md`)** — the default separator hierarchy (paragraphs → lines → words → characters) with **10% overlap**, which is sufficient for natural-language text.
+
+Both honour the configurable maximum chunk size (default `2000` characters). The two strategies were evaluated against the moulinette recall@k metric and the best-scoring configuration was kept.
 
 ## Retrieval Method
 

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List
 
 import bm25s
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
 from tqdm import tqdm
 
 
@@ -32,9 +32,15 @@ def chunk_text(text: str, max_chunk_size: int) -> List[dict]:
 
 
 def chunk_code(text: str, max_chunk_size: int) -> List[dict]:
-    """Chunk files using RecursiveCharacterTextSplitter."""
+    """Chunk Python source on class/def boundaries (code-aware).
+
+    Uses Python-structural separators so chunks align to real code
+    units (classes, functions) instead of arbitrary prose breaks,
+    with 50% overlap so a definition is not lost across a boundary.
+    """
     chunk_overlap = max_chunk_size // 2  # 50% overlap
-    splitter = RecursiveCharacterTextSplitter(
+    splitter = RecursiveCharacterTextSplitter.from_language(
+        Language.PYTHON,
         chunk_size=max_chunk_size,
         chunk_overlap=chunk_overlap,
         add_start_index=True,
