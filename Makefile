@@ -39,7 +39,7 @@ help:
 install:
 	uv sync
 
-run: search
+run: pipeline
 
 debug:
 	$(PYTHON) -m pdb -m student search "How to configure OpenAI server?" -k 5
@@ -82,6 +82,8 @@ evaluate-docs:
 evaluate-code:
 	$(STUDENT) evaluate --student_search_results_path $(CODE_RESULTS) --dataset_path $(CODE_ANSWERED) --k $(K)
 
+evaluate: evaluate-docs evaluate-code
+
 moulinette-docs:
 	$(MOULINETTE) evaluate_student_search_results $(DOCS_RESULTS) $(DOCS_ANSWERED) --k $(K) --max_context_length $(MAX_CONTEXT_LENGTH) --threshold 0.80
 
@@ -90,4 +92,4 @@ moulinette-code:
 
 moulinette: moulinette-docs moulinette-code
 
-pipeline: index search-all moulinette
+pipeline: index search-all moulinette evaluate
