@@ -4,7 +4,7 @@ _This project has been created as part of the 42 curriculum by msantos2._
 
 ## Description
 
-This project implements a Retrieval-Augmented Generation (RAG) pipeline designed to answer questions over the `vLLM` codebase. It ingests source code and documentation, indexes it using the BM25 retrieval method, and utilizes a Local Large Language Model (Qwen/Qwen2.5-0.5B-Instruct) to generate grounded, source-cited natural language answers. It achieves robust recall@k metrics to validate its retrieval capabilities.
+This project implements a Retrieval-Augmented Generation (RAG) pipeline designed to answer questions over the `vLLM` codebase. It ingests source code and documentation, indexes it using the BM25 retrieval method, and utilizes a Local Large Language Model (Qwen/Qwen3-0.6B) to generate grounded, source-cited natural language answers. It achieves robust recall@k metrics to validate its retrieval capabilities.
 
 ## Instructions
 
@@ -47,16 +47,17 @@ uv run python -m student answer "How to configure OpenAI server?" -k 5
 To run bulk evaluation pipelines:
 
 ```bash
-uv run python -m student search_dataset --dataset_path datasets_public/public/UnansweredQuestions/dataset_docs_public.json --save_directory data/output/search_results -k 10
+uv run python -m student search_dataset --dataset_path data/datasets/public/UnansweredQuestions/dataset_docs_public.json --save_directory data/output/search_results -k 10
 
-uv run python -m student evaluate --student_search_results_path data/output/search_results/dataset_docs_public.json --dataset_path datasets_public/public/AnsweredQuestions/dataset_docs_public.json -k 10
+uv run python -m student evaluate --student_search_results_path data/output/search_results/dataset_docs_public.json --dataset_path data/datasets/public/AnsweredQuestions/dataset_docs_public.json -k 10
 
 uv run python -m student answer_dataset --student_search_results_path data/output/search_results/dataset_docs_public.json --save_directory data/output/search_results_and_answer
 ```
 
-## Resources
+## Libraries Used
 
-- **BM25s**: Used for high-speed lexical search.
+- **bm25s**: Used for high-speed lexical search.
+- **langchain-text-splitters**: Provides `RecursiveCharacterTextSplitter` for offset-aware chunking.
 - **Transformers**: Employed to load and execute the Qwen model.
 - **Pydantic**: Used for strong typing and data validation across the RAG pipeline models.
 - **Fire**: Utilized for dynamic CLI creation.
@@ -65,13 +66,13 @@ uv run python -m student answer_dataset --student_search_results_path data/outpu
 
 The system consists of three main modules:
 
-1. **Indexer (`indexer.py`)**: Traverses the `vllm-0.10.1` directory, reading valid code and text files, chunks them based on configured maximum character limits, and uses the `bm25s` library to produce an inverted index.
-2. **Retriever (`retriever.py`)**: Loads the BM25 index and corresponding file chunks. Given a query or dataset of queries, it tokenizes the query and retrieves the top-k overlapping chunks, mapped back to their original character offsets (`first_character_index`, `last_character_index`).
-3. **Generator (`generator.py`)**: Consumes the context provided by the Retriever and crafts a prompt for the `Qwen` causal language model. It truncates the context to a maximum character/token length to fit the LLM context window and returns a synthesized, grounded answer.
+1. **Indexer (`indexer.py`)**: Traverses the `vllm-0.10.1` directory, reading `.py` and `.md` files, chunks them with `RecursiveCharacterTextSplitter`, and uses the `bm25s` library to produce an inverted index. Outputs the BM25 store and a `chunks.json` metadata file to `data/processed`.
+2. **Retriever (`search.py`)**: Loads the BM25 index and corresponding file chunks. Given a query or dataset of queries, it tokenizes the query and retrieves the top-k overlapping chunks, mapped back to their original character offsets (`first_character_index`, `last_character_index`).
+3. **Generator (`answer.py`)**: Consumes the context provided by the Retriever and crafts a prompt for the `Qwen` causal language model. It reads an expanded window around each retrieved chunk directly from the source file and returns a synthesized, grounded answer.
 
 ## Chunking Strategy
 
-The ingestion system applies a context-aware character limit approach. It initially attempts to split text into chunks based on double newlines (paragraphs/semantic blocks). If a logical block exceeds the defined limit (e.g., `2000` characters), it dynamically breaks the content down by single newlines, and as a last resort, hard character splits. It carefully tracks the substring offset within the original file to ensure character indices map perfectly to ground-truth validations.
+The ingestion system uses LangChain's `RecursiveCharacterTextSplitter`, which recursively splits text on a hierarchy of separators (paragraphs, then lines, then characters) until each chunk fits the configured maximum size (e.g., `2000` characters). The splitter runs with `add_start_index=True`, so every chunk records its exact substring offset in the original file and character indices map perfectly to ground-truth validations. Code files (`.py`) use a larger overlap (50%) than prose (10%) to keep function and class boundaries intact across chunks.
 
 ## Retrieval Method
 
@@ -83,13 +84,13 @@ The evaluation module computes `Recall@k` for k={1, 3, 5, 10}. The retrieval sys
 
 ## Design Decisions
 
-- **`bm25s` over `scikit-learn`**: `bm25s` is written in Rust/C and explicitly designed for BM25 efficiency, scaling rapidly over large codebases like `vLLM` without significant memory overhead.
-- **Offsets via `str.find`**: Extracting substring start and end indices using the core string module after chunk generation to avoid compounding offset errors common when iterating character arrays manually.
+- **`bm25s` for retrieval**: `bm25s` is written in Rust/C and explicitly designed for BM25 efficiency, scaling rapidly over large codebases like `vLLM` without significant memory overhead.
+- **Offsets via `add_start_index`**: Chunk start indices come directly from `RecursiveCharacterTextSplitter`'s `add_start_index` metadata, avoiding compounding offset errors common when tracking positions manually.
 - **Modular CLI structure**: Each phase (index, search, evaluate, answer) is logically disjointed inside the `student` module and mapped directly to Fire methods, enabling seamless debugging and scalability.
 
 ## Challenges Faced
 
-- **Index/Offset Mapping**: Correctly mapping character start and end indices back to the original source text during advanced chunking rules required careful iteration and validation using `.find()` mechanics to avoid zero-overlap errors.
+- **Index/Offset Mapping**: Correctly mapping character start and end indices back to the original source text required threading the splitter's `start_index` metadata through indexing, search, and answer generation to avoid zero-overlap errors.
 - **Context Length Limitations**: Integrating local LLM context necessitated rigorous text truncation logic prior to injection into the prompt to avoid `CUDA Out of Memory` issues.
 
 ## Example Usage
@@ -102,7 +103,7 @@ $ uv run python -m student search "How to configure OpenAI server?" -k 2
     "question": "How to configure OpenAI server?",
     "retrieved_sources": [
         {
-            "file_path": "docs/source/serving/openai_compatible_server.rst",
+            "file_path": "data/raw/vllm-0.10.1/docs/source/serving/openai_compatible_server.md",
             "first_character_index": 541,
             "last_character_index": 1289
         },
