@@ -18,6 +18,41 @@ make install
 
 Alternatively: `uv sync`
 
+### Setup: Data & Moulinette (required before evaluation)
+
+Two assets are **not version-controlled** (they are gitignored) and must be placed
+manually after cloning. Both are provided by the 42 subject.
+
+1. **vLLM source data** — obtain the `vLLM 0.10.1` source from the subject and
+   extract it so the tree is `data/raw/vllm-0.10.1/` (containing the upstream
+   `vllm/`, `docs/`, … directories). The indexer reads from this path by default.
+
+2. **Moulinette** — obtain the moulinette from the subject, place the binary at
+   `moulinette/moulinette-ubuntu`, and make it executable:
+
+   ```bash
+   chmod +x moulinette/moulinette-ubuntu
+   ```
+
+Expected layout once both are in place:
+
+```text
+data/
+  raw/vllm-0.10.1/        # vLLM 0.10.1 source (from the subject)
+  datasets/public/...     # evaluation datasets (already in the repo)
+moulinette/
+  moulinette-ubuntu       # grading binary (from the subject), chmod +x
+```
+
+With both assets in place, run the whole evaluation end to end:
+
+```bash
+make pipeline   # index -> search-all -> moulinette -> evaluate
+```
+
+The moulinette passes when docs recall ≥ 0.80 and code recall ≥ 0.50 (thresholds
+encoded in the Makefile).
+
 ### Execution
 
 To run the main search functionality on a single query:
@@ -26,7 +61,8 @@ To run the main search functionality on a single query:
 make run
 ```
 
-To index the repository (required before searching):
+To index the repository (required before searching; needs the vLLM source from
+the [setup step](#setup-data--moulinette-required-before-evaluation) above):
 
 ```bash
 uv run python -m student index --max_chunk_size 2000
@@ -104,7 +140,7 @@ In short, BM25 ranks a document by how often the query terms appear in it (TF), 
 
 See [`BM25.md`](BM25.md) for a step-by-step walkthrough of how BM25 builds up from simple term counting.
 
-## Bonus: Result Caching
+## Result Caching
 
 The subject's **result caching** bonus is implemented at two levels, both working and demonstrable:
 
