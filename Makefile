@@ -21,19 +21,20 @@ MAX_CONTEXT_LENGTH = 2000
 	pipeline
 
 help:
-	@echo "make install          Install dependencies"
-	@echo "make index            Index vLLM into data/processed"
-	@echo "make search           Run one sample search query"
-	@echo "make answer           Run one sample answer query"
-	@echo "make search-docs      Generate docs search results"
-	@echo "make search-code      Generate code search results"
-	@echo "make search-all       Generate docs and code search results"
-	@echo "make moulinette-docs  Check docs results with official moulinette"
-	@echo "make moulinette-code  Check code results with official moulinette"
-	@echo "make moulinette       Check both docs and code results"
-	@echo "make pipeline         Run index, search-all, and moulinette"
-	@echo "make clean            Remove generated outputs and caches"
-	@echo "make lint             Run flake8 and mypy"
+	@echo "Evaluation workflow:"
+	@echo "  make install      Install dependencies (uv sync)"
+	@echo "  make index        Build the BM25 index (run before searching)"
+	@echo "  make search-all   Generate docs + code search results"
+	@echo "  make moulinette   Grade results (docs >=0.80, code >=0.50)"
+	@echo "  make pipeline     index + search-all + moulinette, end to end"
+	@echo ""
+	@echo "Demo a single query:"
+	@echo "  make search       One sample search query"
+	@echo "  make answer       One sample answer query (loads the LLM)"
+	@echo ""
+	@echo "Quality:"
+	@echo "  make lint         Run flake8 + mypy"
+	@echo "  make clean        Remove generated index, outputs, caches"
 
 install:
 	uv sync
