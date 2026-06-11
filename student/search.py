@@ -98,6 +98,7 @@ def _retrieve_chunks(query: str, k: int) -> List[Dict[str, Any]]:
 
 
 def search(query: str, k: int = 10) -> MinimalSearchResults:
+    """Retrieve the top-k sources for a single query."""
     chunks = _retrieve_chunks(query, k)
     return MinimalSearchResults(
         question_id="cli_query",

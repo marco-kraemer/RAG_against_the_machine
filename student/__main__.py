@@ -15,10 +15,14 @@ except ImportError:
 
 
 class CLI:
+    """Fire entry points for the RAG pipeline stages."""
+
     def index(self, max_chunk_size: int = 2000) -> None:
+        """Index the vLLM repository into data/processed."""
         index_repository(max_chunk_size=max_chunk_size)
 
     def search(self, query: str, k: int = 10) -> None:
+        """Print the top-k search results for a single query."""
         result = search(query, k)
         print(json.dumps(result.model_dump(), indent=2))
 
@@ -28,6 +32,7 @@ class CLI:
         k: int = 10,
         save_directory: str = "data/output/search_results",
     ) -> None:
+        """Search every question in a dataset and save the results."""
         search_dataset(
             dataset_path=dataset_path,
             save_directory=save_directory,
@@ -35,6 +40,7 @@ class CLI:
         )
 
     def answer(self, query: str, k: int = 10) -> None:
+        """Generate a grounded answer for a single query."""
         try:
             result = answer_query(query, k=k)
         except RuntimeError as e:
@@ -47,6 +53,7 @@ class CLI:
         student_search_results_path: str,
         save_directory: str = "data/output/search_results_and_answer",
     ) -> None:
+        """Generate answers for previously saved search results."""
         answer_dataset(
             student_search_results_path=student_search_results_path,
             save_directory=save_directory,
@@ -58,6 +65,7 @@ class CLI:
         dataset_path: str,
         k: int = 10,
     ) -> None:
+        """Evaluate saved search results against ground-truth sources."""
         evaluate_search_results(
             student_search_results_path=student_search_results_path,
             dataset_path=dataset_path,

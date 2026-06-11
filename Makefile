@@ -51,6 +51,10 @@ lint:
 	uv run flake8 $(SRC)
 	uv run mypy $(SRC) --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
 
+lint-strict:
+	uv run flake8 $(SRC)
+	uv run mypy $(SRC) --strict
+
 answer:
 	$(STUDENT) answer "How to configure OpenAI server?" --k $(K)
 

@@ -118,3 +118,19 @@ $ uv run python -m student search "How to configure OpenAI server?" -k 2
 - [Understanding TF-IDF and BM-25](https://kmwllc.com/index.php/2020/03/20/understanding-tf-idf-and-bm-25/)
 - [BM25S](https://bm25s.github.io/)
 - [LangChain - RecursiveCharacterTextSplitter](https://reference.langchain.com/python/langchain-text-splitters/character/RecursiveCharacterTextSplitter)
+
+### How AI was used
+
+AI assistance (Claude) was used as a pair-programming and review aid, not as a
+substitute for understanding. Concretely:
+
+- **Indexing/chunking**: discussing chunking trade-offs (overlap ratios, mapping
+  `add_start_index` offsets back to the source) and reviewing the `indexer.py`
+  implementation.
+- **Retrieval & evaluation**: sanity-checking the BM25 wiring in `search.py` and
+  the recall@k overlap logic in `evaluate.py` against the subject's metric.
+- **Tooling/docs**: drafting and proofreading this README, refining the
+  `Makefile` lint targets, and auditing the project against the subject.
+
+All generated suggestions were read, tested, and adapted before being kept; the
+design decisions and final code are our own.

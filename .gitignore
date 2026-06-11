@@ -19,7 +19,7 @@ env/
 .uv-cache/
 
 # Project-generated data and large local assets
-# data/raw/
+data/raw/
 data/index/
 data/processed/
 data/output/
