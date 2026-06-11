@@ -18,7 +18,7 @@ make install
 
 Alternatively: `uv sync`
 
-### Setup: Data & Moulinette (required before evaluation)
+### Setup: Data & Moulinette
 
 Two assets are **not version-controlled** (they are gitignored) and must be placed
 manually after cloning. Both are provided by the 42 subject.
