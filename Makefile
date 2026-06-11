@@ -45,7 +45,7 @@ debug:
 	$(PYTHON) -m pdb -m student search "How to configure OpenAI server?" -k 5
 
 clean:
-	rm -rf .pytest_cache .mypy_cache __pycache__ student/__pycache__
+	rm -rf .mypy_cache __pycache__ student/__pycache__
 	rm -rf data/processed data/output
 
 lint:
