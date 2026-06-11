@@ -64,6 +64,23 @@ uv run python -m student answer_dataset --student_search_results_path data/outpu
 
 ## System Architecture
 
+```mermaid
+flowchart TD
+    subgraph Indexing["Indexing — offline, one-time"]
+        SRC["vLLM source<br/>.py / .md files"] --> IDX["Indexer<br/>indexer.py"]
+        IDX -->|"chunk + tokenize"| STORE[("data/processed<br/>bm25_index + chunks.json")]
+    end
+
+    subgraph Querying["Querying — per request"]
+        Q["User query"] --> RET["Retriever<br/>search.py"]
+        STORE --> RET
+        RET -->|"top-k chunks"| GEN["Generator<br/>answer.py + Qwen3-0.6B"]
+        GEN --> ANS["Grounded, source-cited answer"]
+    end
+
+    RET -.->|"recall@k"| EVAL["Evaluator<br/>evaluate.py"]
+```
+
 The system consists of three main modules:
 
 1. **Indexer (`indexer.py`)**: Traverses the `vllm-0.10.1` directory, reading `.py` and `.md` files, chunks them with `RecursiveCharacterTextSplitter`, and uses the `bm25s` library to produce an inverted index. Outputs the BM25 store and a `chunks.json` metadata file to `data/processed`.
@@ -82,6 +99,10 @@ Both honour the configurable maximum chunk size (default `2000` characters). The
 ## Retrieval Method
 
 **BM25** (Best Matching 25), powered by the `bm25s` Python library, was used for retrieval. It offers rapid and exact lexical searching via Term Frequency-Inverse Document Frequency (TF-IDF) mechanics, optimized for high recall on specific code queries and terminologies standard in a framework codebase.
+
+In short, BM25 ranks a document by how often the query terms appear in it (TF), weighted by how rare those terms are across the whole corpus (IDF). Two knobs refine this: `k1` controls term-frequency *saturation* (so repeating a word stops helping after a point, defeating keyword stuffing), and `b` controls document-*length normalization* (so a short, focused chunk isn't out-ranked by a long, rambling one). This project uses the standard defaults, `k1 = 1.5` and `b = 0.75`.
+
+See [`BM25.md`](BM25.md) for a step-by-step walkthrough of how BM25 builds up from simple term counting.
 
 ## Bonus: Result Caching
 
