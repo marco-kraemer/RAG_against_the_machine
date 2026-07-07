@@ -63,6 +63,19 @@ def chunk_code(text: str, max_chunk_size: int) -> List[dict]:
 def chunk_file(
     text: str, max_chunk_size: int, file_extension: str
 ) -> List[dict]:
+    """Chunk a file with the strategy matching its type.
+
+    Python files use code-aware splitting; everything else uses the
+    prose splitter.
+
+    Args:
+        text: Full text content of the file.
+        max_chunk_size: Maximum chunk size in characters.
+        file_extension: File suffix used to pick the strategy (e.g. ".py").
+
+    Returns:
+        The list of chunk dicts produced by the chosen splitter.
+    """
     if file_extension == ".py":
         return chunk_code(text, max_chunk_size)
     return chunk_text(text, max_chunk_size)
@@ -73,6 +86,18 @@ def index_repository(
     index_dir: str = "data/processed",
     max_chunk_size: int = 2000,
 ) -> None:
+    """Index a repository into a persisted BM25 store.
+
+    Walks the repository for ``.py`` and ``.md`` files, chunks them with
+    the per-type strategy, builds a BM25 index, and writes the index plus
+    a ``chunks.json`` metadata file to ``index_dir``.
+
+    Args:
+        repo_path: Path to the source repository to index.
+        index_dir: Directory where the BM25 index and chunk metadata are
+            written.
+        max_chunk_size: Maximum chunk size in characters.
+    """
     repo = Path(repo_path)
     output_dir = Path(index_dir)
     print(f"Indexing repository at {repo}...")

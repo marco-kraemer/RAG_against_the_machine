@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Dict, Iterable, List
 
-from student.models import (
+from src.models import (
     AnsweredQuestion,
     MinimalSearchResults,
     MinimalSource,
@@ -80,16 +80,19 @@ def recall_for_question(
 
 
 def _load_dataset(dataset_path: Path) -> RagDataset:
+    """Load and validate a ground-truth RAG dataset from JSON."""
     with dataset_path.open("r", encoding="utf-8") as dataset_file:
         return RagDataset.model_validate_json(dataset_file.read())
 
 
 def _load_search_results(search_results_path: Path) -> StudentSearchResults:
+    """Load and validate saved student search results from JSON."""
     with search_results_path.open("r", encoding="utf-8") as results_file:
         return StudentSearchResults.model_validate_json(results_file.read())
 
 
 def _metric_names(k: int) -> List[int]:
+    """Return the ordered, de-duplicated k values to report recall for."""
     requested_ks = [1, 3, 5, k]
     metric_ks: List[int] = []
     for value in requested_ks:
@@ -101,6 +104,7 @@ def _metric_names(k: int) -> List[int]:
 def _student_results_by_id(
     student_results: StudentSearchResults,
 ) -> Dict[str, MinimalSearchResults]:
+    """Index student search results by their question id for lookup."""
     return {
         result.question_id: result
         for result in student_results.search_results

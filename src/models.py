@@ -41,7 +41,7 @@ class MinimalSearchResults(BaseModel):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
-    def question_str(self) -> str:
+    def question_str(self: "MinimalSearchResults") -> str:
         """Moulinette-compatible question field."""
         return self.question
 

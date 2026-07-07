@@ -4,30 +4,30 @@ try:
 
     import fire
 
-    from student.answer import answer_dataset, answer_query
-    from student.evaluate import evaluate_search_results
-    from student.indexer import index_repository
-    from student.search import search, search_dataset
+    from src.answer import answer_dataset, answer_query
+    from src.evaluate import evaluate_search_results
+    from src.indexer import index_repository
+    from src.search import search, search_dataset
 except ImportError:
     print("Run make install to install the required dependencies.")
-    print("Example: uv run python -m student")
+    print("Example: uv run python -m src")
     sys.exit(1)
 
 
 class CLI:
     """Fire entry points for the RAG pipeline stages."""
 
-    def index(self, max_chunk_size: int = 2000) -> None:
+    def index(self: "CLI", max_chunk_size: int = 2000) -> None:
         """Index the vLLM repository into data/processed."""
         index_repository(max_chunk_size=max_chunk_size)
 
-    def search(self, query: str, k: int = 10) -> None:
+    def search(self: "CLI", query: str, k: int = 10) -> None:
         """Print the top-k search results for a single query."""
         result = search(query, k)
         print(json.dumps(result.model_dump(), indent=2))
 
     def search_dataset(
-        self,
+        self: "CLI",
         dataset_path: str,
         k: int = 10,
         save_directory: str = "data/output/search_results",
@@ -39,7 +39,7 @@ class CLI:
             k=k,
         )
 
-    def answer(self, query: str, k: int = 10) -> None:
+    def answer(self: "CLI", query: str, k: int = 10) -> None:
         """Generate a grounded answer for a single query."""
         try:
             result = answer_query(query, k=k)
@@ -49,7 +49,7 @@ class CLI:
         print(json.dumps(result.model_dump(), indent=2))
 
     def answer_dataset(
-        self,
+        self: "CLI",
         student_search_results_path: str,
         save_directory: str = "data/output/search_results_and_answer",
     ) -> None:
@@ -60,7 +60,7 @@ class CLI:
         )
 
     def evaluate(
-        self,
+        self: "CLI",
         student_search_results_path: str,
         dataset_path: str,
         k: int = 10,

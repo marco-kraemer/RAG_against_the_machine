@@ -7,7 +7,7 @@ try:
     import bm25s
     from tqdm import tqdm
 
-    from student.models import (
+    from src.models import (
         MinimalSearchResults,
         MinimalSource,
         RagDataset,
@@ -60,7 +60,7 @@ def get_retriever() -> Any:
             )
         except Exception as e:
             print(f"Error loading BM25 model: {e}")
-            print("Run: uv run python -m student index")
+            print("Run: uv run python -m src index")
             sys.exit(1)
     return _retriever
 

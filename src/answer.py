@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import torch
 from tqdm import tqdm
 
-from student.models import (
+from src.models import (
     MinimalAnswer,
     MinimalSource,
     StudentSearchResults,
@@ -50,6 +50,17 @@ def _load_model(local_files_only: bool) -> Tuple[Any, Any]:
 
 
 def get_model() -> Tuple[Any, Any]:
+    """Return the cached Qwen tokenizer and model, loading them once.
+
+    Tries the local Hugging Face cache first, then falls back to a
+    download unless offline mode is explicitly requested.
+
+    Returns:
+        A ``(tokenizer, model)`` tuple.
+
+    Raises:
+        RuntimeError: If the model cannot be loaded from cache or download.
+    """
     global _tokenizer, _model
     if _tokenizer is None or _model is None:
         try:
@@ -201,7 +212,7 @@ def generate_answer(query: str, chunks: List[Dict[str, Any]]) -> str:
 
 def answer_query(query: str, k: int = 10) -> MinimalAnswer:
     """Retrieve context and return a structured answer for one query."""
-    from student.search import _retrieve_chunks
+    from src.search import _retrieve_chunks
 
     chunks = _retrieve_chunks(query, k)
     sources = chunks_to_sources(chunks)
