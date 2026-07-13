@@ -7,6 +7,7 @@ from src.models import (
     MinimalSource,
     RagDataset,
     StudentSearchResults,
+    validated_k,
 )
 
 RAW_REPO_PREFIX = "data/raw/vllm-0.10.1/"
@@ -127,6 +128,7 @@ def evaluate_search_results(
 ) -> Dict[str, float]:
     """Evaluate saved search results against answered
     ground-truth questions."""
+    k = validated_k(k)
     try:
         dataset = _load_dataset(Path(dataset_path))
         student_results = _load_search_results(

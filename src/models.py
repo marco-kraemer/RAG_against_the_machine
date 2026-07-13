@@ -4,6 +4,26 @@ from typing import List, Sequence
 from pydantic import BaseModel, Field, computed_field
 
 
+def validated_k(k: object) -> int:
+    """Return k as an int, exiting gracefully when it is not one."""
+    if isinstance(k, bool) or not isinstance(k, int):
+        print(f"Error: k must be an integer, got {k!r}")
+        raise SystemExit(1)
+    return k
+
+
+def validated_chunk_size(max_chunk_size: object) -> int:
+    """Return max_chunk_size as a positive int, else exit gracefully."""
+    if isinstance(max_chunk_size, bool) or not isinstance(max_chunk_size, int):
+        print(f"Error: max_chunk_size must be an integer, "
+              f"got {max_chunk_size!r}")
+        raise SystemExit(1)
+    if max_chunk_size <= 0:
+        print(f"Error: max_chunk_size must be positive, got {max_chunk_size}")
+        raise SystemExit(1)
+    return max_chunk_size
+
+
 class MinimalSource(BaseModel):
     """Minimal source location used by search and answer results."""
 

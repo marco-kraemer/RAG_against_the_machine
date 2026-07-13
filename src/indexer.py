@@ -7,6 +7,8 @@ import bm25s
 from langchain_text_splitters import Language, RecursiveCharacterTextSplitter
 from tqdm import tqdm
 
+from src.models import validated_chunk_size
+
 
 def chunk_text(text: str, max_chunk_size: int) -> List[dict]:
     """Chunk files using RecursiveCharacterTextSplitter."""
@@ -96,8 +98,10 @@ def index_repository(
         repo_path: Path to the source repository to index.
         index_dir: Directory where the BM25 index and chunk metadata are
             written.
-        max_chunk_size: Maximum chunk size in characters.
+        max_chunk_size: Maximum chunk size in characters. Must be a positive
+            integer; a non-positive or non-integer value exits gracefully.
     """
+    max_chunk_size = validated_chunk_size(max_chunk_size)
     repo = Path(repo_path)
     output_dir = Path(index_dir)
     print(f"Indexing repository at {repo}...")

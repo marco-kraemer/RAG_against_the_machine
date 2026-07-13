@@ -12,6 +12,7 @@ try:
         MinimalSource,
         RagDataset,
         StudentSearchResults,
+        validated_k,
     )
 except ImportError:
     print("Run make install to install the required dependencies.")
@@ -84,15 +85,22 @@ def _retrieve_chunks(query: str, k: int) -> List[Dict[str, Any]]:
     """Internal function to retrieve top-k chunks for a query.
     BM25 returns document IDs and scores,
     we use the IDs to look up chunk metadata and content.
+    Non-integer k exits gracefully, k <= 0 returns no chunks, and
+    k larger than the corpus is clamped to the corpus size.
     Results are memoised by (query, k) so a repeated query is
     served from the query cache without re-running BM25."""
+    k = validated_k(k)
+    if k <= 0:
+        return []
+
+    retriever = get_retriever()
+    metadata = get_metadata()
+    k = min(k, len(metadata))
+
     cache_key = (query, k)
     cached = _query_cache.get(cache_key)
     if cached is not None:
         return cached
-
-    retriever = get_retriever()
-    metadata = get_metadata()
 
     query_tokens = bm25s.tokenize(query, stopwords="en", show_progress=False)
     docs, _ = retriever.retrieve(query_tokens, k=k, show_progress=False)
