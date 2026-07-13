@@ -88,9 +88,9 @@ def index_repository(
 ) -> None:
     """Index a repository into a persisted BM25 store.
 
-    Walks the repository for ``.py`` and ``.md`` files, chunks them with
-    the per-type strategy, builds a BM25 index, and writes the index plus
-    a ``chunks.json`` metadata file to ``index_dir``.
+    Walks the repository for ``.py``, ``.md`` and ``.txt`` files, chunks
+    them with the per-type strategy, builds a BM25 index, and writes the
+    index plus a ``chunks.json`` metadata file to ``index_dir``.
 
     Args:
         repo_path: Path to the source repository to index.
@@ -103,10 +103,11 @@ def index_repository(
     print(f"Indexing repository at {repo}...")
 
     # 1. Walk through files
+    indexable_suffixes = (".py", ".md", ".txt")
     files_to_index: List[Path] = []
     for root, _, files in os.walk(repo):
         for file in files:
-            if file.endswith(".py") or file.endswith(".md"):
+            if file.endswith(indexable_suffixes):
                 files_to_index.append(Path(root) / file)
 
     print(f"Found {len(files_to_index)} files. Chunking...")

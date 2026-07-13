@@ -49,7 +49,7 @@ moulinette/
 With both assets in place, run the whole evaluation end to end:
 
 ```bash
-make pipeline   # index -> search-all -> moulinette -> evaluate
+make pipeline   # index -> search-all -> moulinette
 ```
 
 The moulinette passes when docs recall ≥ 0.80 and code recall ≥ 0.50 (thresholds
@@ -107,7 +107,7 @@ uv run python -m src answer_dataset --student_search_results_path data/output/se
 ```mermaid
 flowchart TD
     subgraph Indexing["Indexing — offline, one-time"]
-        SRC["vLLM source<br/>.py / .md files"] --> IDX["Indexer<br/>indexer.py"]
+        SRC["vLLM source<br/>.py / .md / .txt files"] --> IDX["Indexer<br/>indexer.py"]
         IDX -->|"chunk + tokenize"| STORE[("data/processed<br/>bm25_index + chunks.json")]
     end
 
@@ -123,7 +123,7 @@ flowchart TD
 
 The system consists of three main modules:
 
-1. **Indexer (`indexer.py`)**: Traverses the `vllm-0.10.1` directory, reading `.py` and `.md` files, chunks them with `RecursiveCharacterTextSplitter`, and uses the `bm25s` library to produce an inverted index. Outputs the BM25 store and a `chunks.json` metadata file to `data/processed`.
+1. **Indexer (`indexer.py`)**: Traverses the `vllm-0.10.1` directory, reading `.py`, `.md` and `.txt` files, chunks them with `RecursiveCharacterTextSplitter`, and uses the `bm25s` library to produce an inverted index. Outputs the BM25 store and a `chunks.json` metadata file to `data/processed`.
 2. **Retriever (`search.py`)**: Loads the BM25 index and corresponding file chunks. Given a query or dataset of queries, it tokenizes the query and retrieves the top-k overlapping chunks, mapped back to their original character offsets (`first_character_index`, `last_character_index`).
 3. **Generator (`answer.py`)**: Consumes the context provided by the Retriever and crafts a prompt for the `Qwen` causal language model. It reads an expanded window around each retrieved chunk directly from the source file and returns a synthesized, grounded answer.
 
@@ -132,7 +132,7 @@ The system consists of three main modules:
 The ingestion system applies a **different strategy per file type**, both built on LangChain's `RecursiveCharacterTextSplitter` with `add_start_index=True` (so every chunk records its exact substring offset in the original file and character indices map perfectly to ground-truth validation):
 
 - **Python code (`.py`)** — `RecursiveCharacterTextSplitter.from_language(Language.PYTHON, ...)` splits on Python-structural separators (`\nclass `, `\ndef `, `\n\tdef `, …) so chunks align to real code units (classes, functions) instead of arbitrary prose breaks. Uses **50% overlap** so a definition is never lost across a chunk boundary.
-- **Prose / Markdown (`.md`)** — the default separator hierarchy (paragraphs → lines → words → characters) with **10% overlap**, which is sufficient for natural-language text.
+- **Prose / text (`.md`, `.txt`)** — the default separator hierarchy (paragraphs → lines → words → characters) with **10% overlap**, which is sufficient for natural-language text. `.txt` files (e.g. `CMakeLists.txt`) are indexed here too, since the docs ground-truth set references them.
 
 Both honour the configurable maximum chunk size (default `2000` characters). The two strategies were evaluated against the moulinette recall@k metric and the best-scoring configuration was kept.
 
@@ -168,10 +168,10 @@ The evaluation module computes `Recall@k` for k={1, 3, 5, 10}, counting a ground
 
 | Dataset | Recall@1 | Recall@3 | Recall@5 | Recall@10 | Threshold (Recall@5) |
 |---------|----------|----------|----------|-----------|----------------------|
-| Docs    | 0.63     | 0.77     | **0.82** | 0.87      | ≥ 0.80 ✅            |
-| Code    | 0.34     | 0.49     | **0.56** | 0.60      | ≥ 0.50 ✅            |
+| Docs    | 0.64     | 0.79     | **0.85** | 0.90      | ≥ 0.80 ✅            |
+| Code    | 0.33     | 0.49     | **0.56** | 0.60      | ≥ 0.50 ✅            |
 
-Docs questions score notably higher than code questions: prose shares vocabulary with natural-language queries, while code questions often paraphrase concepts that BM25 can only match through identifiers. The code-aware chunking with 50% overlap was the main lever for lifting code recall — it keeps whole definitions inside single chunks so identifier matches align with the ground-truth spans. Chunk size stays at the maximum allowed 2000 characters: re-indexing with `--max_chunk_size 1000` drops recall@5 to 0.79 on docs (below the threshold) and 0.53 on code, since narrower spans overlap the reference regions less often, so the default was kept. Indexing the full corpus and searching a 200-question batch both complete well within the subject's 5-minute / 90-second budgets.
+Docs questions score notably higher than code questions: prose shares vocabulary with natural-language queries, while code questions often paraphrase concepts that BM25 can only match through identifiers. The code-aware chunking with 50% overlap was the main lever for lifting code recall — it keeps whole definitions inside single chunks so identifier matches align with the ground-truth spans. The indexer ingests `.txt` alongside `.py`/`.md` because the docs ground-truth set cites files such as `CMakeLists.txt`; without them those questions are unrecallable, and adding them lifts docs recall@5 from 0.82 to 0.85. Chunk size stays at the maximum allowed 2000 characters: re-indexing with `--max_chunk_size 1000` drops recall@5 to 0.80 on docs (at the threshold, no margin) and 0.54 on code, since narrower spans overlap the reference regions less often, so the default was kept. Indexing the full corpus and searching a 200-question batch both complete well within the subject's 5-minute / 90-second budgets.
 
 ## Design Decisions
 
