@@ -16,8 +16,8 @@ CODE_RESULTS = $(SEARCH_RESULTS_DIR)/dataset_code_public.json
 K = 10
 MAX_CONTEXT_LENGTH = 2000
 
-.PHONY: help install run debug clean lint lint-strict answer search index \
-	search-docs search-code search-all search-dataset answer-dataset \
+.PHONY: help install run debug clean fclean lint lint-strict answer search \
+	index search-docs search-code search-all search-dataset answer-dataset \
 	evaluate-docs evaluate-code moulinette-docs moulinette-code moulinette \
 	pipeline
 
@@ -36,6 +36,7 @@ help:
 	@echo "Quality:"
 	@echo "  make lint         Run flake8 + mypy"
 	@echo "  make clean        Remove generated index, outputs, caches"
+	@echo "  make fclean       clean + remove the .venv (full reset)"
 
 install:
 	uv sync
@@ -48,6 +49,9 @@ debug:
 clean:
 	rm -rf .mypy_cache __pycache__ src/__pycache__
 	rm -rf data/processed data/output
+
+fclean: clean
+	rm -rf .venv
 
 lint:
 	uv run flake8 .
