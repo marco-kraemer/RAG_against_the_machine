@@ -10,7 +10,7 @@ from src.models import (
 )
 
 RAW_REPO_PREFIX = "data/raw/vllm-0.10.1/"
-MINIMUM_OVERLAP_RATIO = 0.05
+MINIMUM_IOU = 0.05
 
 
 def normalize_source_path(path: str) -> str:
@@ -28,16 +28,15 @@ def source_overlap_ratio(
     expected: MinimalSource,
     retrieved: MinimalSource,
 ) -> float:
-    """Return overlap length divided by the expected source length."""
+    """Return the intersection-over-union of the two character ranges.
+
+    Mirrors the moulinette's recall@k rule: two sources in the same file
+    overlap when their IoU (intersection / union of character spans) is at
+    least ``MINIMUM_IOU``. Sources in different files never overlap.
+    """
     if normalize_source_path(expected.file_path) != normalize_source_path(
         retrieved.file_path
     ):
-        return 0.0
-
-    expected_length = (
-        expected.last_character_index - expected.first_character_index
-    )
-    if expected_length <= 0:
         return 0.0
 
     overlap_start = max(
@@ -48,8 +47,18 @@ def source_overlap_ratio(
         expected.last_character_index,
         retrieved.last_character_index,
     )
-    overlap_length = max(0, overlap_end - overlap_start)
-    return overlap_length / expected_length
+    intersection = max(0, overlap_end - overlap_start)
+    if intersection <= 0:
+        return 0.0
+
+    union = (
+        (expected.last_character_index - expected.first_character_index)
+        + (retrieved.last_character_index - retrieved.first_character_index)
+        - intersection
+    )
+    if union <= 0:
+        return 0.0
+    return intersection / union
 
 
 def source_found(
@@ -58,7 +67,7 @@ def source_found(
 ) -> bool:
     """Return whether a ground-truth source is found in retrieved sources."""
     return any(
-        source_overlap_ratio(expected, retrieved) >= MINIMUM_OVERLAP_RATIO
+        source_overlap_ratio(expected, retrieved) >= MINIMUM_IOU
         for retrieved in retrieved_sources
     )
 
@@ -67,7 +76,7 @@ def recall_for_question(
     expected_sources: List[MinimalSource],
     retrieved_sources: List[MinimalSource],
 ) -> float:
-    """Compute recall for one question using subject source-overlap rules."""
+    """Compute recall for one question using the subject's IoU overlap rule."""
     if not expected_sources:
         return 0.0
 
